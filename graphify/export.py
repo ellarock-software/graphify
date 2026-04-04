@@ -1,4 +1,4 @@
-# write graph to HTML, JSON, SVG, Obsidian vault, and Neo4j Cypher
+# write graph to HTML, JSON, SVG, GraphML, Obsidian vault, and Neo4j Cypher
 from __future__ import annotations
 import json
 import math
@@ -584,6 +584,23 @@ def push_to_neo4j(
 
     driver.close()
     return {"nodes": nodes_pushed, "edges": edges_pushed}
+
+
+def to_graphml(
+    G: nx.Graph,
+    communities: dict[int, list[str]],
+    output_path: str,
+) -> None:
+    """Export graph as GraphML — opens in Gephi, yEd, and any GraphML-compatible tool.
+
+    Community IDs are written as a node attribute so Gephi can colour by community.
+    Edge confidence (EXTRACTED/INFERRED/AMBIGUOUS) is preserved as an edge attribute.
+    """
+    H = G.copy()
+    node_community = {n: cid for cid, nodes in communities.items() for n in nodes}
+    for node_id in H.nodes():
+        H.nodes[node_id]["community"] = node_community.get(node_id, -1)
+    nx.write_graphml(H, output_path)
 
 
 def to_svg(

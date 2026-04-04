@@ -107,6 +107,7 @@ All commands are typed inside Claude Code:
 
 /graphify ./raw --html             # also export graph.html (browser, no Obsidian needed)
 /graphify ./raw --svg              # also export graph.svg (embeds in Notion, GitHub)
+/graphify ./raw --graphml          # also export graph.graphml (Gephi, yEd, any GraphML tool)
 /graphify ./raw --neo4j            # generate cypher.txt for Neo4j import
 /graphify ./raw --mcp              # start MCP stdio server for agent access
 ```
@@ -218,7 +219,7 @@ graphify/
 ├── cluster.py    Leiden community detection, cohesion scoring
 ├── analyze.py    god nodes, bridge nodes, surprising connections, suggested questions, graph diff
 ├── report.py     render GRAPH_REPORT.md
-├── export.py     Obsidian vault, graph.json, graph.html, graph.svg, Neo4j Cypher, Canvas
+├── export.py     Obsidian vault, graph.json, graph.html, graph.svg, graph.graphml, Neo4j Cypher, Canvas
 ├── ingest.py     fetch URLs (arXiv, Twitter/X, PDF, any webpage); save Q&A to .graphify/memory/
 ├── cache.py      SHA256-based per-file extraction cache; check_semantic_cache / save_semantic_cache
 ├── security.py   URL validation (http/https only), safe fetch with size cap, path guards, label sanitisation

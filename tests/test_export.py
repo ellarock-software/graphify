@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from graphify.build import build_from_json
 from graphify.cluster import cluster
-from graphify.export import to_json, to_cypher
+from graphify.export import to_json, to_cypher, to_graphml
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -52,3 +52,30 @@ def test_to_cypher_contains_merge_statements():
         to_cypher(G, str(out))
         content = out.read_text()
         assert "MERGE" in content
+
+def test_to_graphml_creates_file():
+    G = make_graph()
+    communities = cluster(G)
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "graph.graphml"
+        to_graphml(G, communities, str(out))
+        assert out.exists()
+
+def test_to_graphml_valid_xml():
+    G = make_graph()
+    communities = cluster(G)
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "graph.graphml"
+        to_graphml(G, communities, str(out))
+        content = out.read_text()
+        assert "<graphml" in content
+        assert "<node" in content
+
+def test_to_graphml_has_community_attribute():
+    G = make_graph()
+    communities = cluster(G)
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "graph.graphml"
+        to_graphml(G, communities, str(out))
+        content = out.read_text()
+        assert "community" in content

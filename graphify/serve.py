@@ -5,11 +5,20 @@ import sys
 from pathlib import Path
 import networkx as nx
 from networkx.readwrite import json_graph
+from graphify.security import validate_graph_path, sanitize_label
 
 
 def _load_graph(graph_path: str) -> nx.Graph:
-    data = json.loads(Path(graph_path).read_text())
-    return json_graph.node_link_graph(data, edges="links")
+    try:
+        safe = validate_graph_path(graph_path)
+        data = json.loads(safe.read_text())
+        return json_graph.node_link_graph(data, edges="links")
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(f"error: graph.json is corrupted ({exc}). Re-run /graphify to rebuild.", file=sys.stderr)
+        sys.exit(1)
 
 
 def _communities_from_graph(G: nx.Graph) -> dict[int, list[str]]:
@@ -71,12 +80,12 @@ def _subgraph_to_text(G: nx.Graph, nodes: set[str], edges: list[tuple], token_bu
     lines = []
     for nid in sorted(nodes, key=lambda n: G.degree(n), reverse=True):
         d = G.nodes[nid]
-        line = f"NODE {d.get('label', nid)} [src={d.get('source_file', '')} loc={d.get('source_location', '')} community={d.get('community', '')}]"
+        line = f"NODE {sanitize_label(d.get('label', nid))} [src={d.get('source_file', '')} loc={d.get('source_location', '')} community={d.get('community', '')}]"
         lines.append(line)
     for u, v in edges:
         if u in nodes and v in nodes:
             d = G.edges[u, v]
-            line = f"EDGE {G.nodes[u].get('label', u)} --{d.get('relation', '')} [{d.get('confidence', '')}]--> {G.nodes[v].get('label', v)}"
+            line = f"EDGE {sanitize_label(G.nodes[u].get('label', u))} --{d.get('relation', '')} [{d.get('confidence', '')}]--> {sanitize_label(G.nodes[v].get('label', v))}"
             lines.append(line)
     output = "\n".join(lines)
     if len(output) > char_budget:

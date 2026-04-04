@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 import networkx as nx
 from networkx.readwrite import json_graph
+from graphify.security import sanitize_label
 
 COMMUNITY_COLORS = [
     "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
@@ -71,9 +72,9 @@ def to_html(
         color = COMMUNITY_COLORS[cid % len(COMMUNITY_COLORS)]
         net.add_node(
             node_id,
-            label=data.get("label", node_id),
+            label=sanitize_label(data.get("label", node_id)),
             color=color,
-            title=(
+            title=sanitize_label(
                 f"Source: {data.get('source_file', 'unknown')}\n"
                 f"Type: {data.get('file_type', 'unknown')}\n"
                 f"Community: {community_labels.get(cid, str(cid)) if community_labels else cid}"

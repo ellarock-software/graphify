@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import re
 import sys
-import urllib.request
+import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
+
+from graphify.security import safe_fetch, safe_fetch_text, validate_url
 
 
 def _safe_filename(url: str, suffix: str) -> str:
@@ -39,9 +41,7 @@ def _detect_url_type(url: str) -> str:
 
 
 def _fetch_html(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 graphify/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return resp.read().decode("utf-8", errors="ignore")
+    return safe_fetch_text(url)
 
 
 def _html_to_markdown(html: str, url: str) -> str:
@@ -175,9 +175,7 @@ def _download_binary(url: str, suffix: str, target_dir: Path) -> Path:
     """Download a binary file (PDF, image) directly."""
     filename = _safe_filename(url, suffix)
     out_path = target_dir / filename
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 graphify/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        out_path.write_bytes(resp.read())
+    out_path.write_bytes(safe_fetch(url))
     return out_path
 
 
@@ -190,23 +188,31 @@ def ingest(url: str, target_dir: Path, author: str | None = None, contributor: s
     target_dir.mkdir(parents=True, exist_ok=True)
     url_type = _detect_url_type(url)
 
-    if url_type == "pdf":
-        out = _download_binary(url, ".pdf", target_dir)
-        print(f"Downloaded PDF: {out.name}")
-        return out
+    try:
+        validate_url(url)
+    except ValueError as exc:
+        raise ValueError(f"ingest: {exc}") from exc
 
-    if url_type == "image":
-        suffix = Path(urllib.parse.urlparse(url).path).suffix or ".jpg"
-        out = _download_binary(url, suffix, target_dir)
-        print(f"Downloaded image: {out.name}")
-        return out
+    try:
+        if url_type == "pdf":
+            out = _download_binary(url, ".pdf", target_dir)
+            print(f"Downloaded PDF: {out.name}")
+            return out
 
-    if url_type == "tweet":
-        content, filename = _fetch_tweet(url, author, contributor)
-    elif url_type == "arxiv":
-        content, filename = _fetch_arxiv(url, author, contributor)
-    else:
-        content, filename = _fetch_webpage(url, author, contributor)
+        if url_type == "image":
+            suffix = Path(urllib.parse.urlparse(url).path).suffix or ".jpg"
+            out = _download_binary(url, suffix, target_dir)
+            print(f"Downloaded image: {out.name}")
+            return out
+
+        if url_type == "tweet":
+            content, filename = _fetch_tweet(url, author, contributor)
+        elif url_type == "arxiv":
+            content, filename = _fetch_arxiv(url, author, contributor)
+        else:
+            content, filename = _fetch_webpage(url, author, contributor)
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        raise RuntimeError(f"ingest: failed to fetch {url!r}: {exc}") from exc
 
     out_path = target_dir / filename
     # Avoid overwriting — append counter if needed
@@ -245,7 +251,7 @@ def save_query_result(
         "---",
         f'type: "{query_type}"',
         f'date: "{now.isoformat()}"',
-        f'question: "{question.replace(chr(34), chr(39))}"',
+        f'question: "{re.sub(chr(10) + chr(13), " ", question).replace(chr(34), chr(39))}"',
         'contributor: "graphify"',
     ]
     if source_nodes:

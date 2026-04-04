@@ -70,7 +70,7 @@ def extract_python(path: Path) -> dict:
         if t == "import_statement":
             for child in node.children:
                 if child.type in ("dotted_name", "aliased_import"):
-                    raw = source[child.start_byte:child.end_byte].decode()
+                    raw = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
                     module_name = raw.split(" as ")[0].strip().lstrip(".")
                     tgt_nid = _make_id(module_name)
                     add_edge(file_nid, tgt_nid, "imports", node.start_point[0] + 1)
@@ -79,7 +79,7 @@ def extract_python(path: Path) -> dict:
         if t == "import_from_statement":
             module_node = node.child_by_field_name("module_name")
             if module_node:
-                raw = source[module_node.start_byte:module_node.end_byte].decode().lstrip(".")
+                raw = source[module_node.start_byte:module_node.end_byte].decode("utf-8", errors="replace").lstrip(".")
                 tgt_nid = _make_id(raw)
                 add_edge(file_nid, tgt_nid, "imports_from", node.start_point[0] + 1)
             return
@@ -88,7 +88,7 @@ def extract_python(path: Path) -> dict:
             name_node = node.child_by_field_name("name")
             if not name_node:
                 return
-            class_name = source[name_node.start_byte:name_node.end_byte].decode()
+            class_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
             class_nid = _make_id(stem, class_name)
             line = node.start_point[0] + 1
             add_node(class_nid, class_name, line)
@@ -99,7 +99,7 @@ def extract_python(path: Path) -> dict:
             if args:
                 for arg in args.children:
                     if arg.type == "identifier":
-                        base = source[arg.start_byte:arg.end_byte].decode()
+                        base = source[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace")
                         # Try same-file base first; fall back to a bare stub
                         base_nid = _make_id(stem, base)
                         if base_nid not in seen_ids:
@@ -127,7 +127,7 @@ def extract_python(path: Path) -> dict:
             name_node = node.child_by_field_name("name")
             if not name_node:
                 return
-            func_name = source[name_node.start_byte:name_node.end_byte].decode()
+            func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
             line = node.start_point[0] + 1
             if parent_class_nid:
                 func_nid = _make_id(parent_class_nid, func_name)
@@ -170,11 +170,11 @@ def extract_python(path: Path) -> dict:
             callee_name: str | None = None
             if func_node:
                 if func_node.type == "identifier":
-                    callee_name = source[func_node.start_byte:func_node.end_byte].decode()
+                    callee_name = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
                 elif func_node.type == "attribute":
                     attr = func_node.child_by_field_name("attribute")
                     if attr:
-                        callee_name = source[attr.start_byte:attr.end_byte].decode()
+                        callee_name = source[attr.start_byte:attr.end_byte].decode("utf-8", errors="replace")
             if callee_name:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
@@ -273,7 +273,7 @@ def extract_js(path: Path) -> dict:
         if t == "import_statement":
             for child in node.children:
                 if child.type == "string":
-                    raw = source[child.start_byte:child.end_byte].decode().strip("'\"` ")
+                    raw = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace").strip("'\"` ")
                     module_name = raw.lstrip("./").split("/")[-1]
                     if module_name:
                         tgt_nid = _make_id(module_name)
@@ -284,7 +284,7 @@ def extract_js(path: Path) -> dict:
             name_node = node.child_by_field_name("name")
             if not name_node:
                 return
-            class_name = source[name_node.start_byte:name_node.end_byte].decode()
+            class_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
             class_nid = _make_id(stem, class_name)
             line = node.start_point[0] + 1
             add_node(class_nid, class_name, line)
@@ -299,7 +299,7 @@ def extract_js(path: Path) -> dict:
             name_node = node.child_by_field_name("name")
             if not name_node:
                 return
-            func_name = source[name_node.start_byte:name_node.end_byte].decode()
+            func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
             line = node.start_point[0] + 1
             func_nid = _make_id(stem, func_name)
             add_node(func_nid, f"{func_name}()", line)
@@ -313,7 +313,7 @@ def extract_js(path: Path) -> dict:
             name_node = node.child_by_field_name("name")
             if not name_node:
                 return
-            method_name = source[name_node.start_byte:name_node.end_byte].decode()
+            method_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
             line = node.start_point[0] + 1
             method_nid = _make_id(parent_class_nid, method_name)
             add_node(method_nid, f".{method_name}()", line)
@@ -331,7 +331,7 @@ def extract_js(path: Path) -> dict:
                     if value and value.type == "arrow_function":
                         name_node = child.child_by_field_name("name")
                         if name_node:
-                            func_name = source[name_node.start_byte:name_node.end_byte].decode()
+                            func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                             line = child.start_point[0] + 1
                             func_nid = _make_id(stem, func_name)
                             add_node(func_nid, f"{func_name}()", line)
@@ -362,11 +362,11 @@ def extract_js(path: Path) -> dict:
             callee_name: str | None = None
             if func_node:
                 if func_node.type == "identifier":
-                    callee_name = source[func_node.start_byte:func_node.end_byte].decode()
+                    callee_name = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
                 elif func_node.type == "member_expression":
                     prop = func_node.child_by_field_name("property")
                     if prop:
-                        callee_name = source[prop.start_byte:prop.end_byte].decode()
+                        callee_name = source[prop.start_byte:prop.end_byte].decode("utf-8", errors="replace")
             if callee_name:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
@@ -455,7 +455,7 @@ def extract_go(path: Path) -> dict:
         if t == "function_declaration":
             name_node = node.child_by_field_name("name")
             if name_node:
-                func_name = source[name_node.start_byte:name_node.end_byte].decode()
+                func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                 line = node.start_point[0] + 1
                 func_nid = _make_id(stem, func_name)
                 add_node(func_nid, f"{func_name}()", line)
@@ -473,12 +473,12 @@ def extract_go(path: Path) -> dict:
                     if param.type == "parameter_declaration":
                         type_node = param.child_by_field_name("type")
                         if type_node:
-                            raw = source[type_node.start_byte:type_node.end_byte].decode().lstrip("*").strip()
+                            raw = source[type_node.start_byte:type_node.end_byte].decode("utf-8", errors="replace").lstrip("*").strip()
                             receiver_type = raw
                         break
             name_node = node.child_by_field_name("name")
             if name_node:
-                method_name = source[name_node.start_byte:name_node.end_byte].decode()
+                method_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                 line = node.start_point[0] + 1
                 if receiver_type:
                     parent_nid = _make_id(stem, receiver_type)
@@ -500,7 +500,7 @@ def extract_go(path: Path) -> dict:
                 if child.type == "type_spec":
                     name_node = child.child_by_field_name("name")
                     if name_node:
-                        type_name = source[name_node.start_byte:name_node.end_byte].decode()
+                        type_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                         line = child.start_point[0] + 1
                         type_nid = _make_id(stem, type_name)
                         add_node(type_nid, type_name, line)
@@ -514,14 +514,14 @@ def extract_go(path: Path) -> dict:
                         if spec.type == "import_spec":
                             path_node = spec.child_by_field_name("path")
                             if path_node:
-                                raw = source[path_node.start_byte:path_node.end_byte].decode().strip('"')
+                                raw = source[path_node.start_byte:path_node.end_byte].decode("utf-8", errors="replace").strip('"')
                                 module_name = raw.split("/")[-1]
                                 tgt_nid = _make_id(module_name)
                                 add_edge_raw(file_nid, tgt_nid, "imports_from", spec.start_point[0] + 1)
                 elif child.type == "import_spec":
                     path_node = child.child_by_field_name("path")
                     if path_node:
-                        raw = source[path_node.start_byte:path_node.end_byte].decode().strip('"')
+                        raw = source[path_node.start_byte:path_node.end_byte].decode("utf-8", errors="replace").strip('"')
                         module_name = raw.split("/")[-1]
                         tgt_nid = _make_id(module_name)
                         add_edge_raw(file_nid, tgt_nid, "imports_from", child.start_point[0] + 1)
@@ -548,11 +548,11 @@ def extract_go(path: Path) -> dict:
             callee_name: str | None = None
             if func_node:
                 if func_node.type == "identifier":
-                    callee_name = source[func_node.start_byte:func_node.end_byte].decode()
+                    callee_name = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
                 elif func_node.type == "selector_expression":
                     field = func_node.child_by_field_name("field")
                     if field:
-                        callee_name = source[field.start_byte:field.end_byte].decode()
+                        callee_name = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
             if callee_name:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
@@ -641,7 +641,7 @@ def extract_rust(path: Path) -> dict:
         if t == "function_item":
             name_node = node.child_by_field_name("name")
             if name_node:
-                func_name = source[name_node.start_byte:name_node.end_byte].decode()
+                func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                 line = node.start_point[0] + 1
                 if parent_impl_nid:
                     func_nid = _make_id(parent_impl_nid, func_name)
@@ -659,7 +659,7 @@ def extract_rust(path: Path) -> dict:
         if t in ("struct_item", "enum_item", "trait_item"):
             name_node = node.child_by_field_name("name")
             if name_node:
-                item_name = source[name_node.start_byte:name_node.end_byte].decode()
+                item_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                 line = node.start_point[0] + 1
                 item_nid = _make_id(stem, item_name)
                 add_node(item_nid, item_name, line)
@@ -670,7 +670,7 @@ def extract_rust(path: Path) -> dict:
             type_node = node.child_by_field_name("type")
             impl_nid: str | None = None
             if type_node:
-                type_name = source[type_node.start_byte:type_node.end_byte].decode().strip()
+                type_name = source[type_node.start_byte:type_node.end_byte].decode("utf-8", errors="replace").strip()
                 impl_nid = _make_id(stem, type_name)
                 add_node(impl_nid, type_name, node.start_point[0] + 1)
             body = node.child_by_field_name("body")
@@ -682,7 +682,7 @@ def extract_rust(path: Path) -> dict:
         if t == "use_declaration":
             arg = node.child_by_field_name("argument")
             if arg:
-                raw = source[arg.start_byte:arg.end_byte].decode()
+                raw = source[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace")
                 clean = raw.split("{")[0].rstrip(":").rstrip("*").rstrip(":")
                 module_name = clean.split("::")[-1].strip()
                 if module_name:
@@ -711,15 +711,15 @@ def extract_rust(path: Path) -> dict:
             callee_name: str | None = None
             if func_node:
                 if func_node.type == "identifier":
-                    callee_name = source[func_node.start_byte:func_node.end_byte].decode()
+                    callee_name = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
                 elif func_node.type == "field_expression":
                     field = func_node.child_by_field_name("field")
                     if field:
-                        callee_name = source[field.start_byte:field.end_byte].decode()
+                        callee_name = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
                 elif func_node.type == "scoped_identifier":
                     name = func_node.child_by_field_name("name")
                     if name:
-                        callee_name = source[name.start_byte:name.end_byte].decode()
+                        callee_name = source[name.start_byte:name.end_byte].decode("utf-8", errors="replace")
             if callee_name:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
@@ -830,12 +830,12 @@ def _resolve_cross_file_imports(
                         # Dig into relative_import → dotted_name → identifier
                         for sub in child.children:
                             if sub.type == "dotted_name":
-                                raw = source[sub.start_byte:sub.end_byte].decode()
+                                raw = source[sub.start_byte:sub.end_byte].decode("utf-8", errors="replace")
                                 target_stem = raw.split(".")[-1]
                                 break
                         break
                     if child.type == "dotted_name" and target_stem is None:
-                        raw = source[child.start_byte:child.end_byte].decode()
+                        raw = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
                         target_stem = raw.split(".")[-1]
 
                 if not target_stem or target_stem not in stem_to_entities:
@@ -853,14 +853,14 @@ def _resolve_cross_file_imports(
                         continue
                     if child.type == "dotted_name":
                         imported_names.append(
-                            source[child.start_byte:child.end_byte].decode()
+                            source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
                         )
                     elif child.type == "aliased_import":
                         # `import X as Y` — take the original name
                         name_node = child.child_by_field_name("name")
                         if name_node:
                             imported_names.append(
-                                source[name_node.start_byte:name_node.end_byte].decode()
+                                source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
                             )
 
                 line = node.start_point[0] + 1

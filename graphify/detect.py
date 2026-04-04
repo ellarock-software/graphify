@@ -156,7 +156,7 @@ def detect(root: Path) -> dict:
     for scan_root in scan_paths:
         in_memory_tree = memory_dir.exists() and str(scan_root).startswith(str(memory_dir))
         import os
-        for dirpath, dirnames, filenames in os.walk(scan_root):
+        for dirpath, dirnames, filenames in os.walk(scan_root, followlinks=False):
             dp = Path(dirpath)
             if not in_memory_tree:
                 # Prune noise dirs in-place so os.walk never descends into them

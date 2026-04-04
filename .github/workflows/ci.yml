@@ -24,7 +24,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e ".[mcp,pdf,watch]"
+          pip install pytest
 
       - name: Run tests
         run: |
-          pytest tests/ -q --tb=short
+          python -m pytest tests/ -q --tb=short
+
+      - name: Verify install works end-to-end
+        run: |
+          graphify --help
+          graphify install

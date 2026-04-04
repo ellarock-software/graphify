@@ -626,6 +626,14 @@ Then paste these sections from GRAPH_REPORT.md directly into the chat:
 
 Do NOT paste the full report - just those three sections. Keep it concise.
 
+Then immediately offer to explore. Pick the single most interesting suggested question from the report - the one that crosses the most community boundaries or has the most surprising bridge node - and ask:
+
+> "The most interesting question this graph can answer: **[question]**. Want me to trace it?"
+
+If the user says yes, run `/graphify query "[question]"` on the graph and walk them through the answer using the graph structure - which nodes connect, which community boundaries get crossed, what the path reveals. Keep going as long as they want to explore. Each answer should end with a natural follow-up ("this connects to X - want to go deeper?") so the session feels like navigation, not a one-shot report.
+
+The graph is the map. Your job after the pipeline is to be the guide.
+
 ---
 
 ## For --update (incremental re-extraction)

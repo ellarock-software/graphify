@@ -8,7 +8,7 @@ graphify is a Claude Code skill backed by a Python library. The skill orchestrat
 detect()  →  extract()  →  build_graph()  →  cluster()  →  analyze()  →  report()  →  export()
 ```
 
-Each stage is a single function in its own module. They communicate through plain Python dicts and NetworkX graphs — no shared state, no side effects outside `.graphify/`.
+Each stage is a single function in its own module. They communicate through plain Python dicts and NetworkX graphs - no shared state, no side effects outside `graphify-out/`.
 
 ## Module responsibilities
 
@@ -68,7 +68,7 @@ All external input passes through `graphify/security.py` before use:
 
 - URLs → `validate_url()` (http/https only) + `_NoFileRedirectHandler` (blocks file:// redirects)
 - Fetched content → `safe_fetch()` / `safe_fetch_text()` (size cap, timeout)
-- Graph file paths → `validate_graph_path()` (must resolve inside `.graphify/`)
+- Graph file paths → `validate_graph_path()` (must resolve inside `graphify-out/`)
 - Node labels → `sanitize_label()` (strips control chars, caps 256 chars, HTML-escapes)
 
 See `SECURITY.md` for the full threat model.
@@ -81,4 +81,4 @@ One test file per module under `tests/`. Run with:
 pytest tests/ -q
 ```
 
-All tests are pure unit tests — no network calls, no file system side effects outside `tmp_path`.
+All tests are pure unit tests - no network calls, no file system side effects outside `tmp_path`.

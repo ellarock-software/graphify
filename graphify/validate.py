@@ -10,7 +10,7 @@ REQUIRED_EDGE_FIELDS = {"source", "target", "relation", "confidence", "source_fi
 def validate_extraction(data: dict) -> list[str]:
     """
     Validate an extraction JSON dict against the graphify schema.
-    Returns a list of error strings — empty list means valid.
+    Returns a list of error strings - empty list means valid.
     """
     if not isinstance(data, dict):
         return ["Extraction must be a JSON object"]
@@ -33,7 +33,7 @@ def validate_extraction(data: dict) -> list[str]:
             if "file_type" in node and node["file_type"] not in VALID_FILE_TYPES:
                 errors.append(
                     f"Node {i} (id={node.get('id', '?')!r}) has invalid file_type "
-                    f"'{node['file_type']}' — must be one of {sorted(VALID_FILE_TYPES)}"
+                    f"'{node['file_type']}' - must be one of {sorted(VALID_FILE_TYPES)}"
                 )
 
     # Edges
@@ -53,7 +53,7 @@ def validate_extraction(data: dict) -> list[str]:
             if "confidence" in edge and edge["confidence"] not in VALID_CONFIDENCES:
                 errors.append(
                     f"Edge {i} has invalid confidence '{edge['confidence']}' "
-                    f"— must be one of {sorted(VALID_CONFIDENCES)}"
+                    f"- must be one of {sorted(VALID_CONFIDENCES)}"
                 )
             if "source" in edge and node_ids and edge["source"] not in node_ids:
                 errors.append(f"Edge {i} source '{edge['source']}' does not match any node id")

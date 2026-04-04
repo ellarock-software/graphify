@@ -1,4 +1,4 @@
-"""graphify — extract · build · cluster · analyze · report."""
+"""graphify - extract · build · cluster · analyze · report."""
 
 
 def __getattr__(name):

@@ -1,4 +1,4 @@
-"""Tests for serve.py — MCP graph query helpers (no mcp package required)."""
+"""Tests for serve.py - MCP graph query helpers (no mcp package required)."""
 import json
 import pytest
 import networkx as nx
@@ -67,7 +67,7 @@ def test_score_nodes_no_match():
 
 def test_score_nodes_source_file_partial():
     G = _make_graph()
-    # "cluster.py" contains "cluster" — should score 0.5 for source match
+    # "cluster.py" contains "cluster" - should score 0.5 for source match
     scored = _score_nodes(G, ["cluster"])
     nids = [nid for _, nid in scored]
     assert "n2" in nids
@@ -150,7 +150,7 @@ def test_load_graph_roundtrip(tmp_path):
     assert G2.number_of_edges() == G.number_of_edges()
 
 def test_load_graph_missing_file(tmp_path):
-    graphify_dir = tmp_path / ".graphify"
+    graphify_dir = tmp_path / "graphify-out"
     graphify_dir.mkdir()
     with pytest.raises(SystemExit):
         _load_graph(str(graphify_dir / "nonexistent.json"))

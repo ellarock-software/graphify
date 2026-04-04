@@ -1,4 +1,4 @@
-"""Tests for graphify/security.py — URL validation, safe fetch, path guards, label sanitisation."""
+"""Tests for graphify/security.py - URL validation, safe fetch, path guards, label sanitisation."""
 from __future__ import annotations
 
 import json
@@ -47,7 +47,7 @@ def test_validate_url_rejects_empty_scheme():
 
 
 # ---------------------------------------------------------------------------
-# safe_fetch — scheme and redirect guards (mocked network)
+# safe_fetch - scheme and redirect guards (mocked network)
 # ---------------------------------------------------------------------------
 
 def _make_mock_response(content: bytes, status: int = 200):
@@ -138,7 +138,7 @@ def test_safe_fetch_text_replaces_bad_bytes():
 # ---------------------------------------------------------------------------
 
 def test_validate_graph_path_allows_inside_base(tmp_path):
-    base = tmp_path / ".graphify"
+    base = tmp_path / "graphify-out"
     base.mkdir()
     graph = base / "graph.json"
     graph.write_text("{}")
@@ -146,19 +146,19 @@ def test_validate_graph_path_allows_inside_base(tmp_path):
     assert result == graph.resolve()
 
 def test_validate_graph_path_blocks_traversal(tmp_path):
-    base = tmp_path / ".graphify"
+    base = tmp_path / "graphify-out"
     base.mkdir()
-    evil = tmp_path / ".graphify" / ".." / "etc_passwd"
+    evil = tmp_path / "graphify-out" / ".." / "etc_passwd"
     with pytest.raises(ValueError, match="escapes"):
         validate_graph_path(str(evil), base=base)
 
 def test_validate_graph_path_requires_base_exists(tmp_path):
-    base = tmp_path / ".graphify"  # not created
+    base = tmp_path / "graphify-out"  # not created
     with pytest.raises(ValueError, match="does not exist"):
         validate_graph_path(str(base / "graph.json"), base=base)
 
 def test_validate_graph_path_raises_if_file_missing(tmp_path):
-    base = tmp_path / ".graphify"
+    base = tmp_path / "graphify-out"
     base.mkdir()
     with pytest.raises(FileNotFoundError):
         validate_graph_path(str(base / "missing.json"), base=base)

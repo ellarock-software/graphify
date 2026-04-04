@@ -14,7 +14,7 @@ _WATCHED_EXTENSIONS = {
 
 def _run_update(watch_path: Path) -> None:
     """Write a flag file and print a notification when files change."""
-    flag = watch_path / ".graphify" / "needs_update"
+    flag = watch_path / "graphify-out" / "needs_update"
     flag.parent.mkdir(parents=True, exist_ok=True)
     flag.write_text("1")
     print(f"\n[graphify watch] New or changed files detected in {watch_path}")
@@ -56,8 +56,8 @@ def watch(watch_path: Path, debounce: float = 3.0) -> None:
     observer.schedule(handler, str(watch_path), recursive=True)
     observer.start()
 
-    print(f"[graphify watch] Watching {watch_path.resolve()} — press Ctrl+C to stop")
-    print(f"[graphify watch] Debounce: {debounce}s — will update {debounce}s after last change")
+    print(f"[graphify watch] Watching {watch_path.resolve()} - press Ctrl+C to stop")
+    print(f"[graphify watch] Debounce: {debounce}s - will update {debounce}s after last change")
 
     try:
         while True:

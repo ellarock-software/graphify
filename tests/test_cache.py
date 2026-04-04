@@ -67,8 +67,8 @@ def test_cached_files(tmp_path, cache_root):
 
 
 def test_clear_cache(tmp_file, cache_root):
-    """clear_cache removes all .json files from .graphify/cache/."""
+    """clear_cache removes all .json files from graphify-out/cache/."""
     save_cached(tmp_file, {"nodes": [], "edges": []}, root=cache_root)
-    assert len(list((cache_root / ".graphify" / "cache").glob("*.json"))) > 0
+    assert len(list((cache_root / "graphify-out" / "cache").glob("*.json"))) > 0
     clear_cache(cache_root)
-    assert len(list((cache_root / ".graphify" / "cache").glob("*.json"))) == 0
+    assert len(list((cache_root / "graphify-out" / "cache").glob("*.json"))) == 0

@@ -1,5 +1,5 @@
 """
-Graphify evaluation script — Transformer/Attention paper corpus.
+Graphify evaluation script - Transformer/Attention paper corpus.
 Runs the full pipeline with a simulated Claude extraction JSON.
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ simulated_extraction = {
         {"id": "feed_forward",          "label": "FeedForward",               "file_type": "paper", "source_file": SOURCE_MD, "source_location": "Sec 3.3"},
         {"id": "layer_norm",            "label": "LayerNorm",                 "file_type": "paper", "source_file": SOURCE_MD, "source_location": "Sec 3.1"},
         {"id": "positional_encoding",   "label": "PositionalEncoding",        "file_type": "paper", "source_file": SOURCE_MD, "source_location": "Sec 3.5"},
-        # Hyperparameters — from config.md
+        # Hyperparameters - from config.md
         {"id": "d_model",               "label": "d_model",                   "file_type": "document", "source_file": SOURCE_CFG, "source_location": "L3"},
         {"id": "num_heads",             "label": "num_heads",                 "file_type": "document", "source_file": SOURCE_CFG, "source_location": "L4"},
         {"id": "dropout",               "label": "dropout",                   "file_type": "document", "source_file": SOURCE_CFG, "source_location": "L7"},
@@ -59,7 +59,7 @@ simulated_extraction = {
         {"source": "decoder_layer",        "target": "layer_norm",           "relation": "applies",           "confidence": "EXTRACTED", "source_file": SOURCE_MD, "weight": 1.0},
         # MultiHeadAttention implements ScaledDotProduct internally
         {"source": "multi_head_attention", "target": "scaled_dot_product",   "relation": "implements",        "confidence": "EXTRACTED", "source_file": SOURCE_MD, "weight": 1.0},
-        # Hyperparameter relationships — from config.md to architecture nodes
+        # Hyperparameter relationships - from config.md to architecture nodes
         {"source": "multi_head_attention", "target": "d_model",              "relation": "parameterized_by",  "confidence": "EXTRACTED", "source_file": SOURCE_CFG, "weight": 1.0},
         {"source": "multi_head_attention", "target": "num_heads",            "relation": "parameterized_by",  "confidence": "EXTRACTED", "source_file": SOURCE_CFG, "weight": 1.0},
         {"source": "scaled_dot_product",   "target": "d_model",              "relation": "scales_by",         "confidence": "INFERRED",  "source_file": SOURCE_MD,  "weight": 0.8},
@@ -67,7 +67,7 @@ simulated_extraction = {
         # Positional encoding connects to transformer input (cross-community link)
         {"source": "positional_encoding",  "target": "transformer",          "relation": "feeds_into",        "confidence": "EXTRACTED", "source_file": SOURCE_MD, "weight": 1.0},
         {"source": "positional_encoding",  "target": "d_model",              "relation": "dimensioned_by",    "confidence": "INFERRED",  "source_file": SOURCE_MD,  "weight": 0.8},
-        # Dropout applied across sub-layers — ambiguous which specific sublayer
+        # Dropout applied across sub-layers - ambiguous which specific sublayer
         {"source": "dropout",              "target": "multi_head_attention",  "relation": "regularizes",      "confidence": "AMBIGUOUS", "source_file": SOURCE_CFG, "weight": 0.6},
         {"source": "dropout",              "target": "feed_forward",          "relation": "regularizes",      "confidence": "AMBIGUOUS", "source_file": SOURCE_CFG, "weight": 0.6},
         # Cross-community bridge: LayerNorm and PositionalEncoding both affect d_model scale

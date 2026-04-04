@@ -106,7 +106,7 @@ def test_calls_no_self_loops():
 
 
 def test_run_analysis_calls_compute_score():
-    """run_analysis() calls compute_score() — must appear as a calls edge."""
+    """run_analysis() calls compute_score() - must appear as a calls edge."""
     result = extract_python(FIXTURES / "sample_calls.py")
     calls = {(e["source"], e["target"]) for e in result["edges"] if e["relation"] == "calls"}
     node_by_label = {n["label"]: n["id"] for n in result["nodes"]}
@@ -127,7 +127,7 @@ def test_run_analysis_calls_normalize():
 
 
 def test_method_calls_module_function():
-    """Analyzer.process() calls run_analysis() — cross class→function calls edge."""
+    """Analyzer.process() calls run_analysis() - cross class→function calls edge."""
     result = extract_python(FIXTURES / "sample_calls.py")
     calls = {(e["source"], e["target"]) for e in result["edges"] if e["relation"] == "calls"}
     node_by_label = {n["label"]: n["id"] for n in result["nodes"]}

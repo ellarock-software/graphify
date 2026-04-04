@@ -1,4 +1,4 @@
-# per-file extraction cache — skip unchanged files on re-run
+# per-file extraction cache - skip unchanged files on re-run
 from __future__ import annotations
 
 import hashlib
@@ -13,8 +13,8 @@ def file_hash(path: Path) -> str:
 
 
 def cache_dir(root: Path = Path(".")) -> Path:
-    """Returns .graphify/cache/ — creates it if needed."""
-    d = Path(root) / ".graphify" / "cache"
+    """Returns graphify-out/cache/ - creates it if needed."""
+    d = Path(root) / "graphify-out" / "cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -23,7 +23,7 @@ def load_cached(path: Path, root: Path = Path(".")) -> dict | None:
     """Return cached extraction for this file if hash matches, else None.
 
     Cache key: SHA256 of file contents.
-    Cache value: stored as .graphify/cache/{hash}.json
+    Cache value: stored as graphify-out/cache/{hash}.json
     Returns None if no cache entry or file has changed.
     """
     try:
@@ -42,7 +42,7 @@ def load_cached(path: Path, root: Path = Path(".")) -> dict | None:
 def save_cached(path: Path, result: dict, root: Path = Path(".")) -> None:
     """Save extraction result for this file.
 
-    Stores as .graphify/cache/{hash}.json where hash = SHA256 of current file contents.
+    Stores as graphify-out/cache/{hash}.json where hash = SHA256 of current file contents.
     result should be a dict with 'nodes' and 'edges' lists.
     """
     h = file_hash(path)
@@ -57,7 +57,7 @@ def cached_files(root: Path = Path(".")) -> set[str]:
 
 
 def clear_cache(root: Path = Path(".")) -> None:
-    """Delete all .graphify/cache/*.json files."""
+    """Delete all graphify-out/cache/*.json files."""
     d = cache_dir(root)
     for f in d.glob("*.json"):
         f.unlink()

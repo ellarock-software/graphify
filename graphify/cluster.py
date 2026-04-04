@@ -36,9 +36,9 @@ def cluster(G: nx.Graph) -> dict[int, list[str]]:
     if G.number_of_edges() == 0:
         return {i: [n] for i, n in enumerate(sorted(G.nodes))}
 
-    from graspologic.partition import leiden  # lazy — avoids 15s numba JIT on import
+    from graspologic.partition import leiden  # lazy - avoids 15s numba JIT on import
 
-    # Leiden warns and drops isolates — handle them separately
+    # Leiden warns and drops isolates - handle them separately
     isolates = [n for n in G.nodes() if G.degree(n) == 0]
     connected_nodes = [n for n in G.nodes() if G.degree(n) > 0]
     connected = G.subgraph(connected_nodes)
@@ -73,7 +73,7 @@ def _split_community(G: nx.Graph, nodes: list[str]) -> list[list[str]]:
     """Run a second Leiden pass on a community subgraph to split it further."""
     subgraph = G.subgraph(nodes)
     if subgraph.number_of_edges() == 0:
-        # No edges — split into individual nodes
+        # No edges - split into individual nodes
         return [[n] for n in sorted(nodes)]
     try:
         from graspologic.partition import leiden
@@ -82,7 +82,7 @@ def _split_community(G: nx.Graph, nodes: list[str]) -> list[list[str]]:
         for node, cid in sub_partition.items():
             sub_communities.setdefault(cid, []).append(node)
         if len(sub_communities) <= 1:
-            # Leiden couldn't split it — return as-is
+            # Leiden couldn't split it - return as-is
             return [sorted(nodes)]
         return [sorted(v) for v in sub_communities.values()]
     except Exception:

@@ -1,4 +1,4 @@
-# Graph Report — /home/safi/graphify_test/httpx  (2026-04-03)
+# Graph Report - /home/safi/graphify_test/httpx  (2026-04-03)
 
 ## Corpus Check
 - 6 files · ~2,800 words
@@ -17,18 +17,18 @@
 - Extraction: ~100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
-## God Nodes (most connected — your core abstractions)
+## God Nodes (most connected - your core abstractions)
 
-1. `client.py` — ~28 edges
-2. `models.py` — ~22 edges
-3. `transport.py` — ~20 edges
-4. `exceptions.py` — ~18 edges
-5. `BaseClient` — ~15 edges
-6. `auth.py` — ~14 edges
-7. `Response` — ~12 edges
-8. `Client` — ~10 edges
-9. `AsyncClient` — ~10 edges
-10. `utils.py` — ~9 edges
+1. `client.py` - ~28 edges
+2. `models.py` - ~22 edges
+3. `transport.py` - ~20 edges
+4. `exceptions.py` - ~18 edges
+5. `BaseClient` - ~15 edges
+6. `auth.py` - ~14 edges
+7. `Response` - ~12 edges
+8. `Client` - ~10 edges
+9. `AsyncClient` - ~10 edges
+10. `utils.py` - ~9 edges
 
 ## Surprising Connections (you probably didn't know these)
 
@@ -45,18 +45,18 @@
 
 ## Communities
 
-### Community 0 — "Core HTTP Client"
+### Community 0 - "Core HTTP Client"
 Cohesion: 0.14
 Nodes (12): client.py, BaseClient, Client, AsyncClient, .send(), .request(), .get(), .post(), .close(), .aclose(), Timeout, Limits
 
-### Community 1 — "Request/Response Models"
+### Community 1 - "Request/Response Models"
 Cohesion: 0.18
 Nodes (10): models.py, Request, Response, URL, Headers, Cookies, .read(), .json(), .raise_for_status(), .cookies
 
-### Community 2 — "Exception Hierarchy"
+### Community 2 - "Exception Hierarchy"
 Cohesion: 0.10
 Nodes (20): exceptions.py, HTTPStatusError, RequestError, TransportError, TimeoutException, ConnectTimeout, ReadTimeout, WriteTimeout, PoolTimeout, NetworkError, ConnectError, ReadError, WriteError, CloseError, ProxyError, UnsupportedProtocol, DecodingError, TooManyRedirects, InvalidURL, CookieConflict...
 
-### Community 3 — "Transport & Auth"
+### Community 3 - "Transport & Auth"
 Cohesion: 0.08
 Nodes (18): transport.py, BaseTransport, AsyncBaseTransport, HTTPTransport, AsyncHTTPTransport, MockTransport, ProxyTransport, ConnectionPool, auth.py, Auth, BasicAuth, DigestAuth, BearerAuth, NetRCAuth, .handle_request(), .auth_flow(), utils.py, .obfuscate_sensitive_headers()...

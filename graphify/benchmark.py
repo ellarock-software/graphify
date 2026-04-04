@@ -1,4 +1,4 @@
-"""Token-reduction benchmark — measures how much context graphify saves vs naive full-corpus approach."""
+"""Token-reduction benchmark - measures how much context graphify saves vs naive full-corpus approach."""
 from __future__ import annotations
 import json
 from pathlib import Path
@@ -62,7 +62,7 @@ _SAMPLE_QUESTIONS = [
 
 
 def run_benchmark(
-    graph_path: str = ".graphify/graph.json",
+    graph_path: str = "graphify-out/graph.json",
     corpus_words: int | None = None,
     questions: list[str] | None = None,
 ) -> dict:

@@ -1,4 +1,4 @@
-# Security helpers — URL validation, safe fetch, path guards, label sanitisation
+# Security helpers - URL validation, safe fetch, path guards, label sanitisation
 from __future__ import annotations
 
 import html
@@ -26,7 +26,7 @@ def validate_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
         raise ValueError(
-            f"Blocked URL scheme '{parsed.scheme}' — only http and https are allowed. "
+            f"Blocked URL scheme '{parsed.scheme}' - only http and https are allowed. "
             f"Got: {url!r}"
         )
     return url
@@ -63,10 +63,10 @@ def safe_fetch(url: str, max_bytes: int = _MAX_FETCH_BYTES, timeout: int = 30) -
     - Network errors propagate as urllib.error.URLError / OSError
 
     Raises:
-        ValueError        — disallowed scheme or redirect target
-        urllib.error.HTTPError  — non-2xx HTTP status
-        urllib.error.URLError   — DNS / connection failure
-        OSError               — size cap exceeded
+        ValueError        - disallowed scheme or redirect target
+        urllib.error.HTTPError  - non-2xx HTTP status
+        urllib.error.URLError   - DNS / connection failure
+        OSError               - size cap exceeded
     """
     validate_url(url)
     opener = _build_opener()
@@ -112,16 +112,16 @@ def safe_fetch_text(url: str, max_bytes: int = _MAX_TEXT_BYTES, timeout: int = 1
 def validate_graph_path(path: str | Path, base: Path | None = None) -> Path:
     """Resolve *path* and verify it stays inside *base*.
 
-    *base* defaults to the `.graphify` directory relative to CWD.
+    *base* defaults to the `graphify-out` directory relative to CWD.
     Also requires the base directory to exist, so a caller cannot
     trick graphify into reading files before any graph has been built.
 
     Raises:
-        ValueError  — path escapes base, or base does not exist
-        FileNotFoundError — resolved path does not exist
+        ValueError  - path escapes base, or base does not exist
+        FileNotFoundError - resolved path does not exist
     """
     if base is None:
-        base = Path(".graphify").resolve()
+        base = Path("graphify-out").resolve()
 
     base = base.resolve()
     if not base.exists():
@@ -136,7 +136,7 @@ def validate_graph_path(path: str | Path, base: Path | None = None) -> Path:
     except ValueError:
         raise ValueError(
             f"Path {path!r} escapes the allowed directory {base}. "
-            "Only paths inside .graphify/ are permitted."
+            "Only paths inside graphify-out/ are permitted."
         )
 
     if not resolved.exists():

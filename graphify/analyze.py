@@ -20,7 +20,7 @@ def _is_file_node(G: nx.Graph, node_id: str) -> bool:
     # Method stub: AST extractor labels methods as '.method_name()'
     if label.startswith(".") and label.endswith("()"):
         return True
-    # Module-level function stub: labeled 'function_name()' — only has a contains edge
+    # Module-level function stub: labeled 'function_name()' - only has a contains edge
     # These are real functions but structurally isolated by definition; not a gap worth flagging
     if label.endswith("()") and G.degree(node_id) <= 1:
         return True
@@ -28,7 +28,7 @@ def _is_file_node(G: nx.Graph, node_id: str) -> bool:
 
 
 def god_nodes(G: nx.Graph, top_n: int = 10) -> list[dict]:
-    """Return the top_n most-connected real entities — the core abstractions.
+    """Return the top_n most-connected real entities - the core abstractions.
 
     File-level hub nodes are excluded: they accumulate import/contains edges
     mechanically and don't represent meaningful architectural abstractions.
@@ -55,7 +55,7 @@ def surprising_connections(
     top_n: int = 5,
 ) -> list[dict]:
     """
-    Find connections that are genuinely surprising — not obvious from file structure.
+    Find connections that are genuinely surprising - not obvious from file structure.
 
     Strategy:
     - Multi-file corpora: cross-file edges between real entities (not concept nodes).
@@ -118,7 +118,7 @@ def _file_category(path: str) -> str:
 
 
 def _top_level_dir(path: str) -> str:
-    """Return the first path component — used to detect cross-repo edges."""
+    """Return the first path component - used to detect cross-repo edges."""
     return path.split("/")[0] if "/" in path else path
 
 
@@ -135,26 +135,26 @@ def _surprise_score(
     score = 0
     reasons: list[str] = []
 
-    # 1. Confidence weight — uncertain connections are more noteworthy
+    # 1. Confidence weight - uncertain connections are more noteworthy
     conf = data.get("confidence", "EXTRACTED")
     conf_bonus = {"AMBIGUOUS": 3, "INFERRED": 2, "EXTRACTED": 1}.get(conf, 1)
     score += conf_bonus
     if conf in ("AMBIGUOUS", "INFERRED"):
-        reasons.append(f"{conf.lower()} connection — not explicitly stated in source")
+        reasons.append(f"{conf.lower()} connection - not explicitly stated in source")
 
-    # 2. Cross file-type bonus — code↔paper or code↔image is non-obvious
+    # 2. Cross file-type bonus - code↔paper or code↔image is non-obvious
     cat_u = _file_category(u_source)
     cat_v = _file_category(v_source)
     if cat_u != cat_v:
         score += 2
         reasons.append(f"crosses file types ({cat_u} ↔ {cat_v})")
 
-    # 3. Cross-repo bonus — different top-level directory
+    # 3. Cross-repo bonus - different top-level directory
     if _top_level_dir(u_source) != _top_level_dir(v_source):
         score += 2
         reasons.append("connects across different repos/directories")
 
-    # 4. Cross-community bonus — Leiden says these are structurally distant
+    # 4. Cross-community bonus - Leiden says these are structurally distant
     cid_u = node_community.get(u)
     cid_v = node_community.get(v)
     if cid_u is not None and cid_v is not None and cid_u != cid_v:
@@ -238,13 +238,13 @@ def _cross_community_surprises(
 ) -> list[dict]:
     """
     For single-source corpora: find edges that bridge different communities.
-    These are surprising because Leiden grouped everything else tightly —
+    These are surprising because Leiden grouped everything else tightly -
     these edges cut across the natural structure.
 
     Falls back to high-betweenness edges if no community info is provided.
     """
     if not communities:
-        # No community info — use edge betweenness centrality
+        # No community info - use edge betweenness centrality
         if G.number_of_edges() == 0:
             return []
         betweenness = nx.edge_betweenness_centrality(G)
@@ -280,7 +280,7 @@ def _cross_community_surprises(
         relation = data.get("relation", "")
         if relation in ("imports", "imports_from", "contains", "method"):
             continue
-        # This edge crosses community boundaries — interesting
+        # This edge crosses community boundaries - interesting
         confidence = data.get("confidence", "EXTRACTED")
         src_id = data.get("_src", u)
         tgt_id = data.get("_tgt", v)
@@ -301,7 +301,7 @@ def _cross_community_surprises(
     order = {"AMBIGUOUS": 0, "INFERRED": 1, "EXTRACTED": 2}
     surprises.sort(key=lambda x: order.get(x["confidence"], 3))
 
-    # Deduplicate by community pair — one representative edge per (A→B) boundary.
+    # Deduplicate by community pair - one representative edge per (A→B) boundary.
     # Without this, a single high-betweenness god node dominates all results.
     seen_pairs: set[tuple] = set()
     deduped = []
@@ -336,7 +336,7 @@ def suggest_questions(
             questions.append({
                 "type": "ambiguous_edge",
                 "question": f"What is the exact relationship between `{ul}` and `{vl}`?",
-                "why": f"Edge tagged AMBIGUOUS (relation: {relation}) — confidence is low.",
+                "why": f"Edge tagged AMBIGUOUS (relation: {relation}) - confidence is low.",
             })
 
     # 2. Bridge nodes (high betweenness) → cross-cutting concern questions
@@ -360,7 +360,7 @@ def suggest_questions(
                 questions.append({
                     "type": "bridge_node",
                     "question": f"Why does `{label}` connect `{comm_label}` to {', '.join(f'`{l}`' for l in other_labels)}?",
-                    "why": f"High betweenness centrality ({score:.3f}) — this node is a cross-community bridge.",
+                    "why": f"High betweenness centrality ({score:.3f}) - this node is a cross-community bridge.",
                 })
 
     # 3. God nodes with many INFERRED edges → verification questions
@@ -387,7 +387,7 @@ def suggest_questions(
             questions.append({
                 "type": "verify_inferred",
                 "question": f"Are the {len(inferred)} inferred relationships involving `{label}` (e.g. with `{others[0]}` and `{others[1]}`) actually correct?",
-                "why": f"`{label}` has {len(inferred)} INFERRED edges — model-reasoned connections that need verification.",
+                "why": f"`{label}` has {len(inferred)} INFERRED edges - model-reasoned connections that need verification.",
             })
 
     # 4. Isolated or weakly-connected nodes → exploration questions
@@ -400,7 +400,7 @@ def suggest_questions(
         questions.append({
             "type": "isolated_nodes",
             "question": f"What connects {', '.join(f'`{l}`' for l in labels)} to the rest of the system?",
-            "why": f"{len(isolated)} weakly-connected nodes found — possible documentation gaps or missing edges.",
+            "why": f"{len(isolated)} weakly-connected nodes found - possible documentation gaps or missing edges.",
         })
 
     # 5. Low-cohesion communities → structural questions
@@ -412,7 +412,7 @@ def suggest_questions(
             questions.append({
                 "type": "low_cohesion",
                 "question": f"Should `{label}` be split into smaller, more focused modules?",
-                "why": f"Cohesion score {score} — nodes in this community are weakly interconnected.",
+                "why": f"Cohesion score {score} - nodes in this community are weakly interconnected.",
             })
 
     if not questions:

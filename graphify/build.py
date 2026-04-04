@@ -14,7 +14,7 @@ def build_from_json(extraction: dict) -> nx.Graph:
         G.add_node(node["id"], **{k: v for k, v in node.items() if k != "id"})
     for edge in extraction.get("edges", []):
         attrs = {k: v for k, v in edge.items() if k not in ("source", "target")}
-        # Preserve original edge direction — undirected graphs lose it otherwise,
+        # Preserve original edge direction - undirected graphs lose it otherwise,
         # causing display functions to show edges backwards.
         attrs["_src"] = edge["source"]
         attrs["_tgt"] = edge["target"]

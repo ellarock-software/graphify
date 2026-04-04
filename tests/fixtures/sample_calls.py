@@ -1,4 +1,4 @@
-"""Fixture: functions and methods that call each other — for call-graph extraction tests."""
+"""Fixture: functions and methods that call each other - for call-graph extraction tests."""
 
 
 def compute_score(data):

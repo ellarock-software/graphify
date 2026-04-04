@@ -1,4 +1,4 @@
-"""graphify CLI — `graphify install` sets up the Claude Code skill."""
+"""graphify CLI - `graphify install` sets up the Claude Code skill."""
 from __future__ import annotations
 import json
 import shutil
@@ -8,7 +8,7 @@ from pathlib import Path
 _SKILL_REGISTRATION = (
     "\n# graphify\n"
     "- **graphify** (`~/.claude/skills/graphify/SKILL.md`) "
-    "— any input to knowledge graph. Trigger: `/graphify`\n"
+    "- any input to knowledge graph. Trigger: `/graphify`\n"
     "When the user types `/graphify`, invoke the Skill tool "
     "with `skill: \"graphify\"` before doing anything else.\n"
 )
@@ -22,7 +22,7 @@ def _bundled_skill() -> Path:
 def install() -> None:
     skill_src = _bundled_skill()
     if not skill_src.exists():
-        print("error: skill.md not found in package — reinstall graphify", file=sys.stderr)
+        print("error: skill.md not found in package - reinstall graphify", file=sys.stderr)
         sys.exit(1)
 
     # Copy skill to ~/.claude/skills/graphify/SKILL.md
@@ -67,7 +67,7 @@ def main() -> None:
         install()
     elif cmd == "benchmark":
         from graphify.benchmark import run_benchmark, print_benchmark
-        graph_path = sys.argv[2] if len(sys.argv) > 2 else ".graphify/graph.json"
+        graph_path = sys.argv[2] if len(sys.argv) > 2 else "graphify-out/graph.json"
         # Try to load corpus_words from detect output
         corpus_words = None
         detect_path = Path(".graphify_detect.json")

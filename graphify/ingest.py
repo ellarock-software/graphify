@@ -74,7 +74,7 @@ def _fetch_tweet(url: str, author: str | None, contributor: str | None) -> tuple
         tweet_text = re.sub(r"<[^>]+>", "", data.get("html", "")).strip()
         tweet_author = data.get("author_name", "unknown")
     except Exception:
-        # oEmbed failed — save URL stub
+        # oEmbed failed - save URL stub
         tweet_text = f"Tweet at {url} (could not fetch content)"
         tweet_author = "unknown"
 
@@ -215,7 +215,7 @@ def ingest(url: str, target_dir: Path, author: str | None = None, contributor: s
         raise RuntimeError(f"ingest: failed to fetch {url!r}: {exc}") from exc
 
     out_path = target_dir / filename
-    # Avoid overwriting — append counter if needed
+    # Avoid overwriting - append counter if needed
     counter = 1
     while out_path.exists():
         stem = Path(filename).stem
@@ -236,7 +236,7 @@ def save_query_result(
 ) -> Path:
     """Save a Q&A result as markdown so it gets extracted into the graph on next --update.
 
-    Files are stored in memory_dir (typically .graphify/memory/) with YAML frontmatter
+    Files are stored in memory_dir (typically graphify-out/memory/) with YAML frontmatter
     that graphify's extractor reads as node metadata. This closes the feedback loop:
     the system grows smarter from both what you add AND what you ask.
     """

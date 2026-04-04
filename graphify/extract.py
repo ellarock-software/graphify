@@ -60,7 +60,7 @@ def extract_python(path: Path) -> dict:
             "weight": 1.0,
         })
 
-    # File-level node — stable ID based on stem only
+    # File-level node - stable ID based on stem only
     file_nid = _make_id(stem)
     add_node(file_nid, path.name, 1)
 
@@ -94,7 +94,7 @@ def extract_python(path: Path) -> dict:
             add_node(class_nid, class_name, line)
             add_edge(file_nid, class_nid, "contains", line)
 
-            # Inheritance — create stub node for external bases so the edge is never dropped
+            # Inheritance - create stub node for external bases so the edge is never dropped
             args = node.child_by_field_name("superclasses")
             if args:
                 for arg in args.children:
@@ -103,7 +103,7 @@ def extract_python(path: Path) -> dict:
                         # Try same-file base first; fall back to a bare stub
                         base_nid = _make_id(stem, base)
                         if base_nid not in seen_ids:
-                            # External or forward-declared base — add a stub so edge survives
+                            # External or forward-declared base - add a stub so edge survives
                             base_nid = _make_id(base)
                             if base_nid not in seen_ids:
                                 nodes.append({
@@ -162,7 +162,7 @@ def extract_python(path: Path) -> dict:
     seen_call_pairs: set[tuple[str, str]] = set()
 
     def walk_calls(node, caller_nid: str) -> None:
-        # Don't recurse into nested function definitions — they have their own context.
+        # Don't recurse into nested function definitions - they have their own context.
         if node.type == "function_definition":
             return
         if node.type == "call":
@@ -1316,7 +1316,7 @@ def extract_ruby(path: Path) -> dict:
             add_edge_raw(file_nid, class_nid, "contains", line)
             body = node.child_by_field_name("body")
             if body is None:
-                # body may not be a named field — walk all children except first/last
+                # body may not be a named field - walk all children except first/last
                 for child in node.children:
                     if child.type == "body_statement":
                         body = child
@@ -1725,7 +1725,7 @@ def extract_kotlin(path: Path) -> dict:
                 if first.type == "simple_identifier":
                     callee_name = source[first.start_byte:first.end_byte].decode("utf-8", errors="replace")
                 elif first.type == "navigation_expression":
-                    # obj.method — get the suffix
+                    # obj.method - get the suffix
                     for child in reversed(first.children):
                         if child.type == "simple_identifier":
                             callee_name = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
@@ -2127,8 +2127,8 @@ def _resolve_cross_file_imports(
     """
     Two-pass import resolution: turn file-level imports into class-level edges.
 
-    Pass 1 — build a global map: class/function name → node_id, per stem.
-    Pass 2 — for each `from .module import Name`, look up Name in the global
+    Pass 1 - build a global map: class/function name → node_id, per stem.
+    Pass 2 - for each `from .module import Name`, look up Name in the global
               map and add a direct INFERRED edge from each class in the
               importing file to the imported entity.
 
@@ -2189,7 +2189,7 @@ def _resolve_cross_file_imports(
 
         def walk_imports(node) -> None:
             if node.type == "import_from_statement":
-                # Find the module name — handles both absolute and relative imports.
+                # Find the module name - handles both absolute and relative imports.
                 # Relative: `from .models import X` → relative_import → dotted_name
                 # Absolute: `from models import X`  → module_name field
                 target_stem: str | None = None
@@ -2224,7 +2224,7 @@ def _resolve_cross_file_imports(
                             source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
                         )
                     elif child.type == "aliased_import":
-                        # `import X as Y` — take the original name
+                        # `import X as Y` - take the original name
                         name_node = child.child_by_field_name("name")
                         if name_node:
                             imported_names.append(
@@ -2396,7 +2396,7 @@ def extract(paths: list[Path]) -> dict:
         all_nodes.extend(result.get("nodes", []))
         all_edges.extend(result.get("edges", []))
 
-    # Add cross-file class-level edges (Python only — uses Python parser internally)
+    # Add cross-file class-level edges (Python only - uses Python parser internally)
     py_paths = [p for p in paths if p.suffix == ".py"]
     py_results = [r for r, p in zip(per_file, paths) if p.suffix == ".py"]
     cross_file_edges = _resolve_cross_file_imports(py_results, py_paths)

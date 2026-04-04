@@ -1,4 +1,4 @@
-# MCP stdio server — exposes graph query tools to Claude and other agents
+# MCP stdio server - exposes graph query tools to Claude and other agents
 from __future__ import annotations
 import json
 import sys
@@ -93,7 +93,7 @@ def _subgraph_to_text(G: nx.Graph, nodes: set[str], edges: list[tuple], token_bu
     return output
 
 
-def serve(graph_path: str = ".graphify/graph.json") -> None:
+def serve(graph_path: str = "graphify-out/graph.json") -> None:
     """Start the MCP server. Requires pip install mcp."""
     try:
         from mcp.server import Server
@@ -161,7 +161,7 @@ def serve(graph_path: str = ".graphify/graph.json") -> None:
             ),
             types.Tool(
                 name="god_nodes",
-                description="Return the most connected nodes — the core abstractions of the knowledge graph.",
+                description="Return the most connected nodes - the core abstractions of the knowledge graph.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -260,7 +260,7 @@ def serve(graph_path: str = ".graphify/graph.json") -> None:
             nodes = _god_nodes(G, top_n=top_n)
             lines = ["God nodes (most connected):"]
             for i, n in enumerate(nodes, 1):
-                lines.append(f"  {i}. {n['label']} — {n['edges']} edges")
+                lines.append(f"  {i}. {n['label']} - {n['edges']} edges")
             return [types.TextContent(type="text", text="\n".join(lines))]
 
         elif name == "graph_stats":
@@ -324,5 +324,5 @@ def serve(graph_path: str = ".graphify/graph.json") -> None:
 
 
 if __name__ == "__main__":
-    graph_path = sys.argv[1] if len(sys.argv) > 1 else ".graphify/graph.json"
+    graph_path = sys.argv[1] if len(sys.argv) > 1 else "graphify-out/graph.json"
     serve(graph_path)

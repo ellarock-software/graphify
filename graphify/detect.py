@@ -13,18 +13,18 @@ class FileType(str, Enum):
     IMAGE = "image"
 
 
-_MANIFEST_PATH = ".graphify/manifest.json"
+_MANIFEST_PATH = "graphify-out/manifest.json"
 
 CODE_EXTENSIONS = {'.py', '.ts', '.js', '.tsx', '.go', '.rs', '.java', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb', '.swift', '.kt', '.kts', '.cs', '.scala', '.php'}
 DOC_EXTENSIONS = {'.md', '.txt', '.rst'}
 PAPER_EXTENSIONS = {'.pdf'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
 
-CORPUS_WARN_THRESHOLD = 50_000    # words — below this, warn "you may not need a graph"
-CORPUS_UPPER_THRESHOLD = 500_000  # words — above this, warn about token cost
-FILE_COUNT_UPPER = 200             # files — above this, warn about token cost
+CORPUS_WARN_THRESHOLD = 50_000    # words - below this, warn "you may not need a graph"
+CORPUS_UPPER_THRESHOLD = 500_000  # words - above this, warn about token cost
+FILE_COUNT_UPPER = 200             # files - above this, warn about token cost
 
-# Files that may contain secrets — skip silently
+# Files that may contain secrets - skip silently
 _SENSITIVE_PATTERNS = [
     re.compile(r'(^|[\\/])\.(env|envrc)(\.|$)', re.IGNORECASE),
     re.compile(r'\.(pem|key|p12|pfx|cert|crt|der|p8)$', re.IGNORECASE),
@@ -111,7 +111,7 @@ def count_words(path: Path) -> int:
         return 0
 
 
-# Directory names to always skip — venvs, caches, build artifacts, deps
+# Directory names to always skip - venvs, caches, build artifacts, deps
 _SKIP_DIRS = {
     "venv", ".venv", "env", ".env",
     "node_modules", "__pycache__", ".git",
@@ -144,8 +144,8 @@ def detect(root: Path) -> dict:
 
     skipped_sensitive: list[str] = []
 
-    # Always include .graphify/memory/ — query results filed back into the graph
-    memory_dir = root / ".graphify" / "memory"
+    # Always include graphify-out/memory/ - query results filed back into the graph
+    memory_dir = root / "graphify-out" / "memory"
     scan_paths = [root]
     if memory_dir.exists():
         scan_paths.append(memory_dir)
@@ -189,11 +189,11 @@ def detect(root: Path) -> dict:
     total_files = sum(len(v) for v in files.values())
     needs_graph = total_words >= CORPUS_WARN_THRESHOLD
 
-    # Determine warning — lower bound, upper bound, or sensitive files skipped
+    # Determine warning - lower bound, upper bound, or sensitive files skipped
     warning: str | None = None
     if not needs_graph:
         warning = (
-            f"Corpus is ~{total_words:,} words — fits in a single context window. "
+            f"Corpus is ~{total_words:,} words - fits in a single context window. "
             f"You may not need a graph."
         )
     elif total_words >= CORPUS_UPPER_THRESHOLD or total_files >= FILE_COUNT_UPPER:
@@ -229,7 +229,7 @@ def save_manifest(files: dict[str, list[str]], manifest_path: str = _MANIFEST_PA
             try:
                 manifest[f] = Path(f).stat().st_mtime
             except OSError:
-                pass  # file deleted between detect() and manifest write — skip it
+                pass  # file deleted between detect() and manifest write - skip it
     Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
     Path(manifest_path).write_text(json.dumps(manifest, indent=2))
 
@@ -244,7 +244,7 @@ def detect_incremental(root: Path, manifest_path: str = _MANIFEST_PATH) -> dict:
     manifest = load_manifest(manifest_path)
 
     if not manifest:
-        # No previous run — treat everything as new
+        # No previous run - treat everything as new
         full["incremental"] = True
         full["new_files"] = full["files"]
         full["unchanged_files"] = {k: [] for k in full["files"]}

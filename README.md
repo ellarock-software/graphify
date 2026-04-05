@@ -14,6 +14,7 @@
 graphify-out/
 ├── graph.html       interactive graph - click nodes, search, filter by community
 ├── obsidian/        open as Obsidian vault
+├── wiki/            Wikipedia-style articles for agent navigation (--wiki)
 ├── GRAPH_REPORT.md  god nodes, surprising connections, suggested questions
 ├── graph.json       persistent graph - query weeks later without re-reading
 └── cache/           SHA256 cache - re-runs only process changed files
@@ -68,6 +69,7 @@ When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` 
 /graphify path "DigestAuth" "Response"
 /graphify explain "SwinTransformer"
 
+/graphify ./raw --wiki             # build agent-crawlable wiki (index.md + article per community)
 /graphify ./raw --svg              # export graph.svg
 /graphify ./raw --graphml          # export graph.graphml (Gephi, yEd)
 /graphify ./raw --neo4j            # generate cypher.txt for Neo4j

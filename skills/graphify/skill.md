@@ -19,6 +19,7 @@ Turn any folder of files into a navigable knowledge graph with community detecti
 /graphify <path> --no-viz                             # skip visualization, just report + JSON
 /graphify <path> --html                               # also export graph.html (interactive vis.js, browser-based)
 /graphify <path> --svg                                # also export graph.svg (embeds in Notion, GitHub)
+/graphify <path> --graphml                            # export graph.graphml (Gephi, yEd)
 /graphify <path> --neo4j                              # generate graphify-out/cypher.txt for Neo4j
 /graphify <path> --neo4j-push bolt://localhost:7687   # push directly to Neo4j
 /graphify <path> --mcp                                # start MCP stdio server for agent access
@@ -384,7 +385,7 @@ Replace INPUT_PATH with the actual path.
 
 ### Step 6 - Generate Obsidian vault (default) + optional HTML
 
-**Always generate the Obsidian vault** - it is the primary visualization. Skip only if `--no-viz`.
+**Always generate the Obsidian vault and HTML** - they are the primary visualizations. Skip both if `--no-viz` (report + JSON only).
 
 ```bash
 python3 -c "
@@ -681,11 +682,6 @@ G_new = build_from_json(new_extraction)
 # Merge: new nodes/edges into existing graph
 G_existing.update(G_new)
 print(f'Merged: {G_existing.number_of_nodes()} nodes, {G_existing.number_of_edges()} edges')
-
-# Save manifest so next --update knows what changed
-from graphify.detect import save_manifest, detect
-detect_result = json.loads(Path('.graphify_detect.json').read_text())
-save_manifest(detect_result['files'])
 " 
 ```
 
@@ -778,6 +774,17 @@ Two traversal modes - choose based on the question:
 |------|------|----------|
 | BFS (default) | _(none)_ | "What is X connected to?" - broad context, nearest neighbors first |
 | DFS | `--dfs` | "How does X reach Y?" - trace a specific chain or dependency path |
+
+First check the graph exists:
+```bash
+python3 -c "
+from pathlib import Path
+if not Path('graphify-out/graph.json').exists():
+    print('ERROR: No graph found. Run /graphify <path> first to build the graph.')
+    raise SystemExit(1)
+"
+```
+If it fails, stop and tell the user to run `/graphify <path>` first.
 
 Load `graphify-out/graph.json`, then:
 
@@ -901,6 +908,17 @@ Replace `QUESTION` with the question, `ANSWER` with your full answer text, `SOUR
 
 Find the shortest path between two named concepts in the graph.
 
+First check the graph exists:
+```bash
+python3 -c "
+from pathlib import Path
+if not Path('graphify-out/graph.json').exists():
+    print('ERROR: No graph found. Run /graphify <path> first to build the graph.')
+    raise SystemExit(1)
+"
+```
+If it fails, stop and tell the user to run `/graphify <path>` first.
+
 ```bash
 python3 -c "
 import json, sys
@@ -973,6 +991,17 @@ print('Path result saved to graphify-out/memory/')
 ## For /graphify explain
 
 Give a plain-language explanation of a single node - everything connected to it.
+
+First check the graph exists:
+```bash
+python3 -c "
+from pathlib import Path
+if not Path('graphify-out/graph.json').exists():
+    print('ERROR: No graph found. Run /graphify <path> first to build the graph.')
+    raise SystemExit(1)
+"
+```
+If it fails, stop and tell the user to run `/graphify <path>` first.
 
 ```bash
 python3 -c "

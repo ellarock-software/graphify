@@ -152,10 +152,10 @@ from pathlib import Path
 detect = json.loads(Path('.graphify_detect.json').read_text())
 all_files = [f for files in detect['files'].values() for f in files]
 
-cached_nodes, cached_edges, uncached = check_semantic_cache(all_files)
+cached_nodes, cached_edges, cached_hyperedges, uncached = check_semantic_cache(all_files)
 
-if cached_nodes or cached_edges:
-    Path('.graphify_cached.json').write_text(json.dumps({'nodes': cached_nodes, 'edges': cached_edges}))
+if cached_nodes or cached_edges or cached_hyperedges:
+    Path('.graphify_cached.json').write_text(json.dumps({'nodes': cached_nodes, 'edges': cached_edges, 'hyperedges': cached_hyperedges}))
 Path('.graphify_uncached.txt').write_text('\n'.join(uncached))
 print(f'Cache: {len(all_files)-len(uncached)} files hit, {len(uncached)} files need extraction')
 "
@@ -195,7 +195,7 @@ Rules:
 
 Code files: focus on semantic edges AST cannot find (call relationships, shared data, arch patterns).
   Do not re-extract imports - AST already has those.
-Doc/paper files: extract named concepts, entities, citations.
+Doc/paper files: extract named concepts, entities, citations. Also extract rationale — sections that explain WHY a decision was made, trade-offs chosen, or design intent. These become nodes with `rationale_for` edges pointing to the concept they explain.
 Image files: use vision to understand what the image IS - do not just OCR.
   UI screenshot: layout patterns, design decisions, key elements, purpose.
   Chart: metric, trend/insight, data source.
@@ -222,15 +222,16 @@ Use sparingly — only when the group relationship adds information beyond the p
 If a file has YAML frontmatter (--- ... ---), copy source_url, captured_at, author,
   contributor onto every node from that file.
 
-confidence_score rules:
-- EXTRACTED edges: confidence_score must be 1.0
-- INFERRED edges: score 0.4-0.9 based on how certain you are.
-  Strong structural inference (e.g. two classes clearly share data): 0.8-0.9.
-  Reasonable but not certain: 0.6-0.7. Weak inference: 0.4-0.5.
-- AMBIGUOUS edges: score 0.1-0.3
+confidence_score is REQUIRED on every edge - never omit it, never use 0.5 as a default:
+- EXTRACTED edges: confidence_score = 1.0 always
+- INFERRED edges: reason about each edge individually.
+  Direct structural evidence (shared data structure, clear dependency): 0.8-0.9.
+  Reasonable inference with some uncertainty: 0.6-0.7.
+  Weak or speculative: 0.4-0.5. Most edges should be 0.6-0.9, not 0.5.
+- AMBIGUOUS edges: 0.1-0.3
 
 Output exactly this JSON (no other text):
-{"nodes":[{"id":"filestem_entityname","label":"Human Readable Name","file_type":"code|document|paper|image","source_file":"relative/path","source_location":null,"source_url":null,"captured_at":null,"author":null,"contributor":null}],"edges":[{"source":"node_id","target":"node_id","relation":"calls|implements|references|cites|conceptually_related_to|shares_data_with|semantically_similar_to","confidence":"EXTRACTED|INFERRED|AMBIGUOUS","confidence_score":1.0,"source_file":"relative/path","source_location":null,"weight":1.0}],"hyperedges":[{"id":"snake_case_id","label":"Human Readable Label","nodes":["node_id1","node_id2","node_id3"],"relation":"participate_in|implement|form","confidence":"EXTRACTED|INFERRED","confidence_score":0.75,"source_file":"relative/path"}],"input_tokens":0,"output_tokens":0}
+{"nodes":[{"id":"filestem_entityname","label":"Human Readable Name","file_type":"code|document|paper|image","source_file":"relative/path","source_location":null,"source_url":null,"captured_at":null,"author":null,"contributor":null}],"edges":[{"source":"node_id","target":"node_id","relation":"calls|implements|references|cites|conceptually_related_to|shares_data_with|semantically_similar_to|rationale_for","confidence":"EXTRACTED|INFERRED|AMBIGUOUS","confidence_score":1.0,"source_file":"relative/path","source_location":null,"weight":1.0}],"hyperedges":[{"id":"snake_case_id","label":"Human Readable Label","nodes":["node_id1","node_id2","node_id3"],"relation":"participate_in|implement|form","confidence":"EXTRACTED|INFERRED","confidence_score":0.75,"source_file":"relative/path"}],"input_tokens":0,"output_tokens":0}
 ```
 
 **Step B3 - Collect, cache, and merge**
@@ -248,8 +249,8 @@ import json
 from graphify.cache import save_semantic_cache
 from pathlib import Path
 
-new = json.loads(Path('.graphify_semantic_new.json').read_text()) if Path('.graphify_semantic_new.json').exists() else {'nodes':[],'edges':[]}
-saved = save_semantic_cache(new.get('nodes', []), new.get('edges', []))
+new = json.loads(Path('.graphify_semantic_new.json').read_text()) if Path('.graphify_semantic_new.json').exists() else {'nodes':[],'edges':[],'hyperedges':[]}
+saved = save_semantic_cache(new.get('nodes', []), new.get('edges', []), new.get('hyperedges', []))
 print(f'Cached {saved} files')
 "
 ```
@@ -260,11 +261,12 @@ python3 -c "
 import json
 from pathlib import Path
 
-cached = json.loads(Path('.graphify_cached.json').read_text()) if Path('.graphify_cached.json').exists() else {'nodes':[],'edges':[]}
-new = json.loads(Path('.graphify_semantic_new.json').read_text()) if Path('.graphify_semantic_new.json').exists() else {'nodes':[],'edges':[]}
+cached = json.loads(Path('.graphify_cached.json').read_text()) if Path('.graphify_cached.json').exists() else {'nodes':[],'edges':[],'hyperedges':[]}
+new = json.loads(Path('.graphify_semantic_new.json').read_text()) if Path('.graphify_semantic_new.json').exists() else {'nodes':[],'edges':[],'hyperedges':[]}
 
 all_nodes = cached['nodes'] + new.get('nodes', [])
 all_edges = cached['edges'] + new.get('edges', [])
+all_hyperedges = cached.get('hyperedges', []) + new.get('hyperedges', [])
 seen = set()
 deduped = []
 for n in all_nodes:
@@ -275,6 +277,7 @@ for n in all_nodes:
 merged = {
     'nodes': deduped,
     'edges': all_edges,
+    'hyperedges': all_hyperedges,
     'input_tokens': new.get('input_tokens', 0),
     'output_tokens': new.get('output_tokens', 0),
 }
@@ -303,9 +306,11 @@ for n in sem['nodes']:
         seen.add(n['id'])
 
 merged_edges = ast['edges'] + sem['edges']
+merged_hyperedges = sem.get('hyperedges', [])
 merged = {
     'nodes': merged_nodes,
     'edges': merged_edges,
+    'hyperedges': merged_hyperedges,
     'input_tokens': sem.get('input_tokens', 0),
     'output_tokens': sem.get('output_tokens', 0),
 }
@@ -408,7 +413,7 @@ Replace INPUT_PATH with the actual path.
 
 ### Step 6 - Generate Obsidian vault (default) + optional HTML
 
-**Always generate the Obsidian vault and HTML** - they are the primary visualizations. Skip both if `--no-viz` (report + JSON only).
+**Generate HTML always** (unless `--no-viz`). **Obsidian vault only if `--obsidian` was given** — it generates one file per node which creates thousands of files in large repos. Skip it by default.
 
 ```bash
 python3 -c "

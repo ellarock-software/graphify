@@ -6,6 +6,20 @@ import shutil
 import sys
 from pathlib import Path
 
+_SETTINGS_HOOK = {
+    "matcher": "Glob|Grep",
+    "hooks": [
+        {
+            "type": "command",
+            "command": (
+                "[ -f graphify-out/graph.json ] && "
+                "echo 'graphify: Knowledge graph exists. Read graphify-out/GRAPH_REPORT.md "
+                "for god nodes and community structure before searching raw files.' || true"
+            ),
+        }
+    ],
+}
+
 _SKILL_REGISTRATION = (
     "\n# graphify\n"
     "- **graphify** (`~/.claude/skills/graphify/SKILL.md`) "
@@ -82,9 +96,57 @@ def claude_install(project_dir: Path | None = None) -> None:
 
     target.write_text(new_content)
     print(f"graphify section written to {target.resolve()}")
+
+    # Also write Claude Code PreToolUse hook to .claude/settings.json
+    _install_claude_hook(project_dir or Path("."))
+
     print()
     print("Claude Code will now check the knowledge graph before answering")
     print("codebase questions and rebuild it after code changes.")
+
+
+def _install_claude_hook(project_dir: Path) -> None:
+    """Add graphify PreToolUse hook to .claude/settings.json."""
+    settings_path = project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+        except json.JSONDecodeError:
+            settings = {}
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+    pre_tool = hooks.setdefault("PreToolUse", [])
+
+    # Check if already installed
+    if any(h.get("matcher") == "Glob|Grep" and "graphify" in str(h) for h in pre_tool):
+        print(f"  .claude/settings.json  →  hook already registered (no change)")
+        return
+
+    pre_tool.append(_SETTINGS_HOOK)
+    settings_path.write_text(json.dumps(settings, indent=2))
+    print(f"  .claude/settings.json  →  PreToolUse hook registered")
+
+
+def _uninstall_claude_hook(project_dir: Path) -> None:
+    """Remove graphify PreToolUse hook from .claude/settings.json."""
+    settings_path = project_dir / ".claude" / "settings.json"
+    if not settings_path.exists():
+        return
+    try:
+        settings = json.loads(settings_path.read_text())
+    except json.JSONDecodeError:
+        return
+    pre_tool = settings.get("hooks", {}).get("PreToolUse", [])
+    filtered = [h for h in pre_tool if not (h.get("matcher") == "Glob|Grep" and "graphify" in str(h))]
+    if len(filtered) == len(pre_tool):
+        return
+    settings["hooks"]["PreToolUse"] = filtered
+    settings_path.write_text(json.dumps(settings, indent=2))
+    print(f"  .claude/settings.json  →  PreToolUse hook removed")
 
 
 def claude_uninstall(project_dir: Path | None = None) -> None:
@@ -115,6 +177,7 @@ def claude_uninstall(project_dir: Path | None = None) -> None:
         return
 
     print(f"graphify section removed from {target.resolve()}")
+    _uninstall_claude_hook(project_dir or Path("."))
 
 
 def main() -> None:

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/safishamsi/graphify/actions/workflows/ci.yml/badge.svg?branch=v1)](https://github.com/safishamsi/graphify/actions/workflows/ci.yml)
 
-**A Claude Code skill.** Type `/graphify` in Claude Code - it reads your files, builds a knowledge graph, and gives you back structure you didn't know was there.
+**A Claude Code skill.** Type `/graphify` in Claude Code - it reads your files, builds a knowledge graph, and gives you back structure you didn't know was there. Understand a codebase faster. Find the "why" behind architectural decisions.
 
 Fully multimodal. Drop in code, PDFs, markdown, screenshots, diagrams, whiteboard photos, even images in other languages - graphify uses Claude vision to extract concepts and relationships from all of it and connects them into one graph.
 
@@ -15,8 +15,6 @@ Fully multimodal. Drop in code, PDFs, markdown, screenshots, diagrams, whiteboar
 ```
 graphify-out/
 ├── graph.html       interactive graph - click nodes, search, filter by community
-├── obsidian/        open as Obsidian vault
-├── wiki/            Wikipedia-style articles for agent navigation (--wiki)
 ├── GRAPH_REPORT.md  god nodes, surprising connections, suggested questions
 ├── graph.json       persistent graph - query weeks later without re-reading
 └── cache/           SHA256 cache - re-runs only process changed files
@@ -63,6 +61,7 @@ When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` 
 /graphify ./raw                    # run on a specific folder
 /graphify ./raw --mode deep        # more aggressive INFERRED edge extraction
 /graphify ./raw --update           # re-extract only changed files, merge into existing graph
+/graphify ./raw --obsidian         # also generate Obsidian vault (opt-in)
 
 /graphify add https://arxiv.org/abs/1706.03762        # fetch a paper, save, update graph
 /graphify add https://x.com/karpathy/status/...       # fetch a tweet
@@ -78,15 +77,16 @@ When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` 
 /graphify ./raw --neo4j            # generate cypher.txt for Neo4j
 /graphify ./raw --mcp              # start MCP stdio server
 
-graphify hook install              # post-commit git hook - rebuilds graph on every commit automatically
+graphify hook install              # git hooks - rebuilds graph on commit and branch switch
+graphify claude install            # write graphify rules to local CLAUDE.md + install PreToolUse hook
 ```
 
 Works with any mix of file types:
 
 | Type | Extensions | Extraction |
 |------|-----------|------------|
-| Code | `.py .ts .js .go .rs .java .c .cpp .rb .cs .kt .scala .php` | AST via tree-sitter + call-graph pass |
-| Docs | `.md .txt .rst` | Concepts + relationships via Claude |
+| Code | `.py .ts .js .go .rs .java .c .cpp .rb .cs .kt .scala .php` | AST via tree-sitter + call-graph pass + docstring/comment rationale |
+| Docs | `.md .txt .rst` | Concepts + relationships + design rationale via Claude |
 | Papers | `.pdf` | Citation mining + concept extraction |
 | Images | `.png .jpg .webp .gif` | Claude vision - screenshots, diagrams, any language |
 
@@ -98,11 +98,21 @@ Works with any mix of file types:
 
 **Suggested questions** - 4-5 questions the graph is uniquely positioned to answer
 
+**The "why"** - docstrings, inline comments (`# NOTE:`, `# IMPORTANT:`, `# HACK:`, `# WHY:`), and design rationale from docs are extracted as `rationale_for` nodes. Not just what the code does - why it was written that way.
+
+**Confidence scores** - every INFERRED edge has a `confidence_score` (0.0-1.0). You know not just what was guessed but how confident the model was. EXTRACTED edges are always 1.0.
+
+**Semantic similarity edges** - cross-file conceptual links that have no structural connection. Two functions solving the same problem without calling each other, a class in code and a concept in a paper describing the same algorithm.
+
+**Hyperedges** - group relationships connecting 3+ nodes that pairwise edges can't express. All classes implementing a shared protocol, all functions in an auth flow, all concepts from a paper section forming one idea.
+
 **Token benchmark** - printed automatically after every run. On a mixed corpus (Karpathy repos + papers + images): **71.5x** fewer tokens per query vs reading raw files.
 
-**Auto-sync** (`--watch`) - run in a background terminal and the graph updates itself as your codebase changes. Code file saves trigger an instant rebuild (AST only, no LLM). Doc/image changes notify you to run `--update` for the LLM re-pass. Useful for agentic workflows where multiple agents are writing code in parallel - the graph stays current between waves automatically.
+**Auto-sync** (`--watch`) - run in a background terminal and the graph updates itself as your codebase changes. Code file saves trigger an instant rebuild (AST only, no LLM). Doc/image changes notify you to run `--update` for the LLM re-pass.
 
-**Git commit hook** (`graphify hook install`) - installs a post-commit hook that rebuilds the graph after every commit. No background process needed. Triggers once per commit, works with any editor, safe to add alongside existing hooks.
+**Git hooks** (`graphify hook install`) - installs post-commit and post-checkout hooks. Graph rebuilds automatically after every commit and every branch switch. No background process needed.
+
+**Always-on for Claude** (`graphify claude install`) - writes a `CLAUDE.md` section so Claude checks the graph before answering architecture questions, plus a `.claude/settings.json` PreToolUse hook that fires before every Glob/Grep - Claude is reminded to check the graph before searching raw files.
 
 **Wiki** (`--wiki`) - Wikipedia-style markdown articles per community and god node, with an `index.md` entry point. Point any agent at `index.md` and it can navigate the knowledge base by reading files instead of parsing JSON.
 

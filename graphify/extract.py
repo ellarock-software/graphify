@@ -149,6 +149,92 @@ def extract_python(path: Path) -> dict:
     function_bodies: list[tuple[str, object]] = []
     walk(root)
 
+    # ── Docstring + rationale comment extraction ──────────────────────────────
+    # Extract module/class/function docstrings and inline rationale comments.
+    # These become rationale nodes connected to their parent entity via rationale_for.
+
+    _RATIONALE_PREFIXES = ("# NOTE:", "# IMPORTANT:", "# HACK:", "# WHY:", "# RATIONALE:", "# TODO:", "# FIXME:")
+
+    def _get_docstring(body_node) -> tuple[str, int] | None:
+        """Return (text, line) of the first string literal in a body node, or None."""
+        if not body_node:
+            return None
+        for child in body_node.children:
+            if child.type == "expression_statement":
+                for sub in child.children:
+                    if sub.type in ("string", "concatenated_string"):
+                        text = source[sub.start_byte:sub.end_byte].decode("utf-8", errors="replace")
+                        text = text.strip("\"'").strip('"""').strip("'''").strip()
+                        if len(text) > 20:
+                            return text, child.start_point[0] + 1
+            break  # docstring must be the first statement
+        return None
+
+    def _add_rationale(text: str, line: int, parent_nid: str) -> None:
+        label = text[:80].replace("\n", " ").strip()
+        rid = _make_id(stem, "rationale", str(line))
+        if rid not in seen_ids:
+            seen_ids.add(rid)
+            nodes.append({
+                "id": rid,
+                "label": label,
+                "file_type": "rationale",
+                "source_file": str_path,
+                "source_location": f"L{line}",
+            })
+        edges.append({
+            "source": rid,
+            "target": parent_nid,
+            "relation": "rationale_for",
+            "confidence": "EXTRACTED",
+            "source_file": str_path,
+            "source_location": f"L{line}",
+            "weight": 1.0,
+        })
+
+    # Module-level docstring
+    module_body = root  # module itself acts as the body
+    ds = _get_docstring(module_body)
+    if ds:
+        _add_rationale(ds[0], ds[1], file_nid)
+
+    # Class and function docstrings (re-walk tree for body nodes)
+    def walk_docstrings(node, parent_nid: str) -> None:
+        t = node.type
+        if t == "class_definition":
+            name_node = node.child_by_field_name("name")
+            body = node.child_by_field_name("body")
+            if name_node and body:
+                class_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
+                nid = _make_id(stem, class_name)
+                ds = _get_docstring(body)
+                if ds:
+                    _add_rationale(ds[0], ds[1], nid)
+                for child in body.children:
+                    walk_docstrings(child, nid)
+            return
+        if t == "function_definition":
+            name_node = node.child_by_field_name("name")
+            body = node.child_by_field_name("body")
+            if name_node and body:
+                func_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
+                nid = _make_id(parent_nid, func_name) if parent_nid != file_nid else _make_id(stem, func_name)
+                ds = _get_docstring(body)
+                if ds:
+                    _add_rationale(ds[0], ds[1], nid)
+            return
+        for child in node.children:
+            walk_docstrings(child, parent_nid)
+
+    walk_docstrings(root, file_nid)
+
+    # Rationale comments (# NOTE:, # IMPORTANT:, etc.)
+    source_text = source.decode("utf-8", errors="replace")
+    for lineno, line_text in enumerate(source_text.splitlines(), start=1):
+        stripped = line_text.strip()
+        if any(stripped.startswith(p) for p in _RATIONALE_PREFIXES):
+            _add_rationale(stripped, lineno, file_nid)
+
     # ── Call-graph pass ───────────────────────────────────────────────────────
     # Build label→nid lookup from all nodes collected above.
     # Normalise: strip "()" suffix and leading "." so "cohesion_score()" and

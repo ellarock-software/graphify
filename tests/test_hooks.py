@@ -53,7 +53,7 @@ def test_uninstall_removes_hook(tmp_path):
     result = uninstall(repo)
     hook = repo / ".git" / "hooks" / "post-commit"
     assert not hook.exists()
-    assert "Removed" in result
+    assert "removed" in result.lower()
 
 
 def test_uninstall_no_hook(tmp_path):

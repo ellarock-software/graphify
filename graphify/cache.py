@@ -65,14 +65,15 @@ def clear_cache(root: Path = Path(".")) -> None:
 def check_semantic_cache(
     files: list[str],
     root: Path = Path("."),
-) -> tuple[list[dict], list[dict], list[str]]:
+) -> tuple[list[dict], list[dict], list[dict], list[str]]:
     """Check semantic extraction cache for a list of absolute file paths.
 
-    Returns (cached_nodes, cached_edges, uncached_files).
+    Returns (cached_nodes, cached_edges, cached_hyperedges, uncached_files).
     Uncached files need Claude extraction; cached files are merged directly.
     """
     cached_nodes: list[dict] = []
     cached_edges: list[dict] = []
+    cached_hyperedges: list[dict] = []
     uncached: list[str] = []
 
     for fpath in files:
@@ -80,15 +81,17 @@ def check_semantic_cache(
         if result is not None:
             cached_nodes.extend(result.get("nodes", []))
             cached_edges.extend(result.get("edges", []))
+            cached_hyperedges.extend(result.get("hyperedges", []))
         else:
             uncached.append(fpath)
 
-    return cached_nodes, cached_edges, uncached
+    return cached_nodes, cached_edges, cached_hyperedges, uncached
 
 
 def save_semantic_cache(
     nodes: list[dict],
     edges: list[dict],
+    hyperedges: list[dict] | None = None,
     root: Path = Path("."),
 ) -> int:
     """Save semantic extraction results to cache, keyed by source_file.
@@ -98,7 +101,7 @@ def save_semantic_cache(
     """
     from collections import defaultdict
 
-    by_file: dict[str, dict] = defaultdict(lambda: {"nodes": [], "edges": []})
+    by_file: dict[str, dict] = defaultdict(lambda: {"nodes": [], "edges": [], "hyperedges": []})
     for n in nodes:
         src = n.get("source_file", "")
         if src:
@@ -107,6 +110,10 @@ def save_semantic_cache(
         src = e.get("source_file", "")
         if src:
             by_file[src]["edges"].append(e)
+    for h in (hyperedges or []):
+        src = h.get("source_file", "")
+        if src:
+            by_file[src]["hyperedges"].append(h)
 
     saved = 0
     for fpath, result in by_file.items():

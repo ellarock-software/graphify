@@ -634,6 +634,7 @@ def extract_rust(path: Path) -> dict:
     add_node(file_nid, path.name, 1)
 
     function_bodies: list[tuple[str, object]] = []
+    pending_uses: list[dict] = []
 
     def walk(node, parent_impl_nid: str | None = None) -> None:
         t = node.type
@@ -684,10 +685,10 @@ def extract_rust(path: Path) -> dict:
             if arg:
                 raw = source[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace")
                 clean = raw.split("{")[0].rstrip(":").rstrip("*").rstrip(":")
-                module_name = clean.split("::")[-1].strip()
-                if module_name:
-                    tgt_nid = _make_id(module_name)
-                    add_edge(file_nid, tgt_nid, "imports_from", node.start_point[0] + 1)
+                full_path = clean.strip()
+                final_segment = full_path.split("::")[-1].strip()
+                if final_segment:
+                    pending_uses.append({"full_path": full_path, "final_segment": final_segment, "line": node.start_point[0] + 1})
             return
 
         for child in node.children:
@@ -695,13 +696,28 @@ def extract_rust(path: Path) -> dict:
 
     walk(root)
 
+    # Process deferred use declarations now that all nodes are created
+    for use_info in pending_uses:
+        final_segment = use_info["final_segment"]
+        line = use_info["line"]
+        matching_nodes = [n for n in nodes if n["label"].strip().rstrip("()").lower() == final_segment.lower()]
+        if matching_nodes:
+            tgt_nid = matching_nodes[0]["id"]
+        else:
+            tgt_nid = _make_id(stem, final_segment)
+        add_edge(file_nid, tgt_nid, "imports_from", line)
+
     label_to_nid: dict[str, str] = {}
+    qualified_index: dict[str, str] = {}
     for n in nodes:
         raw = n["label"]
         normalised = raw.strip("()").lstrip(".")
         label_to_nid[normalised.lower()] = n["id"]
+        qualified_key = f"{stem}::{normalised}".lower()
+        qualified_index[qualified_key] = n["id"]
 
     seen_call_pairs: set[tuple[str, str]] = set()
+    raw_calls: list[dict] = []
 
     def walk_calls(node, caller_nid: str) -> None:
         if node.type == "function_item":
@@ -709,6 +725,8 @@ def extract_rust(path: Path) -> dict:
         if node.type == "call_expression":
             func_node = node.child_by_field_name("function")
             callee_name: str | None = None
+            qualifier: str | None = None
+            line = node.start_point[0] + 1
             if func_node:
                 if func_node.type == "identifier":
                     callee_name = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
@@ -720,13 +738,19 @@ def extract_rust(path: Path) -> dict:
                     name = func_node.child_by_field_name("name")
                     if name:
                         callee_name = source[name.start_byte:name.end_byte].decode("utf-8", errors="replace")
-            if callee_name:
+                    full_path = source[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace").strip()
+                    parts = [p.strip() for p in full_path.split("::") if p.strip()]
+                    if len(parts) >= 2:
+                        qualifier = "::".join(parts[-2:])
+                    if callee_name and qualifier:
+                        raw_calls.append({"callee_name": callee_name, "qualifier": qualifier, "caller_nid": caller_nid, "line": line, "source_file": str_path})
+                        return
+            if callee_name and not qualifier:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
                     pair = (caller_nid, tgt_nid)
                     if pair not in seen_call_pairs:
                         seen_call_pairs.add(pair)
-                        line = node.start_point[0] + 1
                         edges.append({
                             "source": caller_nid,
                             "target": tgt_nid,
@@ -742,6 +766,25 @@ def extract_rust(path: Path) -> dict:
     for caller_nid, body_node in function_bodies:
         walk_calls(body_node, caller_nid)
 
+    for call_info in raw_calls:
+        qualifier = call_info["qualifier"].lower()
+        caller_nid = call_info["caller_nid"]
+        line = call_info["line"]
+        tgt_nid = qualified_index.get(qualifier)
+        if tgt_nid and tgt_nid != caller_nid:
+            pair = (caller_nid, tgt_nid)
+            if pair not in seen_call_pairs:
+                seen_call_pairs.add(pair)
+                edges.append({
+                    "source": caller_nid,
+                    "target": tgt_nid,
+                    "relation": "calls",
+                    "confidence": "INFERRED",
+                    "source_file": str_path,
+                    "source_location": f"L{line}",
+                    "weight": 0.8,
+                })
+
     valid_ids = seen_ids
     clean_edges = []
     for edge in edges:
@@ -749,7 +792,7 @@ def extract_rust(path: Path) -> dict:
         if src in valid_ids and (tgt in valid_ids or edge["relation"] in ("imports", "imports_from")):
             clean_edges.append(edge)
 
-    return {"nodes": nodes, "edges": clean_edges}
+    return {"nodes": nodes, "edges": clean_edges, "raw_calls": raw_calls}
 
 
 def extract_java(path: Path) -> dict:
@@ -2392,15 +2435,51 @@ def extract(paths: list[Path]) -> dict:
 
     all_nodes: list[dict] = []
     all_edges: list[dict] = []
+    all_raw_calls: list[dict] = []
     for result in per_file:
         all_nodes.extend(result.get("nodes", []))
         all_edges.extend(result.get("edges", []))
+        all_raw_calls.extend(result.get("raw_calls", []))
 
     # Add cross-file class-level edges (Python only - uses Python parser internally)
     py_paths = [p for p in paths if p.suffix == ".py"]
     py_results = [r for r, p in zip(per_file, paths) if p.suffix == ".py"]
     cross_file_edges = _resolve_cross_file_imports(py_results, py_paths)
     all_edges.extend(cross_file_edges)
+
+    # Resolve Rust qualified calls (cross-file scoped calls like fixtures::gemini_timeout())
+    qualified_index: dict[str, str] = {}
+    for n in all_nodes:
+        raw = n["label"]
+        normalised = raw.strip("()").lstrip(".")
+        source_file = n.get("source_file", "")
+        try:
+            file_stem = Path(source_file).stem
+            qualified_key = f"{file_stem}::{normalised}".lower()
+            qualified_index[qualified_key] = n["id"]
+        except Exception:
+            pass
+
+    seen_call_pairs: set[tuple[str, str]] = set()
+    for call_info in all_raw_calls:
+        qualifier = call_info["qualifier"].lower()
+        caller_nid = call_info["caller_nid"]
+        line = call_info["line"]
+        source_file = call_info.get("source_file", "")
+        tgt_nid = qualified_index.get(qualifier)
+        if tgt_nid and tgt_nid != caller_nid:
+            pair = (caller_nid, tgt_nid)
+            if pair not in seen_call_pairs:
+                seen_call_pairs.add(pair)
+                all_edges.append({
+                    "source": caller_nid,
+                    "target": tgt_nid,
+                    "relation": "calls",
+                    "confidence": "INFERRED",
+                    "source_file": source_file,
+                    "source_location": f"L{line}",
+                    "weight": 0.8,
+                })
 
     return {
         "nodes": all_nodes,

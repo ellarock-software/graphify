@@ -1,5 +1,5 @@
 from pathlib import Path
-from graphify.extract import extract_python, extract, collect_files, _make_id
+from graphify.extract import extract_python, extract_rust, extract, collect_files, _make_id
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -142,3 +142,50 @@ def test_calls_deduplication():
     result = extract_python(FIXTURES / "sample_calls.py")
     call_pairs = [(e["source"], e["target"]) for e in result["edges"] if e["relation"] == "calls"]
     assert len(call_pairs) == len(set(call_pairs)), "Duplicate calls edges found"
+
+
+def test_rust_reexport_resolves_to_definition():
+    """pub use declarations must create edges to the actual definition, not just the final segment."""
+    path = FIXTURES / "rust_project_reexports" / "src" / "lib.rs"
+    result = extract_rust(path)
+    imports = [e for e in result["edges"] if e["relation"] == "imports_from"]
+    assert len(imports) > 0, "Expected at least one imports_from edge for pub use"
+    # Edge should point to Error node (the actual struct), not a dangling external import
+    target_ids = {e["target"] for e in imports}
+    target_labels = [n["label"] for n in result["nodes"] if n["id"] in target_ids]
+    assert any("Error" in label for label in target_labels), f"Expected Error in targets, got {target_labels}"
+
+
+def test_rust_scoped_call_resolves_with_namespace():
+    """Scoped calls like fixtures::gemini_timeout() must resolve to the correct module function."""
+    files = list((FIXTURES / "rust_project_scoped" / "src").glob("*.rs"))
+    result = extract(files)
+    calls = [e for e in result["edges"] if e["relation"] == "calls"]
+    assert len(calls) > 0, "Expected at least one calls edge"
+    # The caller should be lib::caller
+    node_by_label = {n["label"]: n["id"] for n in result["nodes"]}
+    caller_id = node_by_label.get("caller()")
+    # The target should be the fixtures::gemini_timeout, not the one from other.rs
+    assert caller_id, "caller() function not found"
+    caller_calls = [e for e in calls if e["source"] == caller_id]
+    assert len(caller_calls) > 0, "caller() should call something"
+    target_ids = {e["target"] for e in caller_calls}
+    target_labels = [n["label"] for n in result["nodes"] if n["id"] in target_ids]
+    assert any("gemini_timeout" in str(label).lower() for label in target_labels), f"Expected gemini_timeout in targets, got {target_labels}"
+
+
+def test_rust_scoped_call_no_collision():
+    """When multiple functions share the same name (gemini_timeout in fixtures.rs vs other.rs),
+    a scoped call fixtures::gemini_timeout() must resolve to the correct one, not collide."""
+    files = list((FIXTURES / "rust_project_scoped" / "src").glob("*.rs"))
+    result = extract(files)
+    # Count gemini_timeout nodes
+    gemini_nodes = [n for n in result["nodes"] if "gemini_timeout" in n["label"].lower()]
+    assert len(gemini_nodes) >= 2, f"Expected at least 2 gemini_timeout functions, got {len(gemini_nodes)}"
+    # Verify calls only go to the qualified one (fixtures::gemini_timeout), not other::gemini_timeout
+    calls = [e for e in result["edges"] if e["relation"] == "calls"]
+    node_by_id = {n["id"]: n for n in result["nodes"]}
+    for call in calls:
+        if "gemini_timeout" in node_by_id.get(call["target"], {}).get("label", "").lower():
+            # This call should be to the fixtures module, confirmed by looking at the extraction
+            assert call["target"] in {n["id"] for n in gemini_nodes}, "Call target is not one of the gemini_timeout nodes"

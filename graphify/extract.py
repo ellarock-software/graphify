@@ -3474,12 +3474,15 @@ def extract(paths: list[Path], cache_root: Path | None = None) -> dict:
     # Each extractor saved unresolved calls in raw_calls. Now that we have all
     # nodes from all files, resolve any callee that exists in another file.
     global_label_to_nid: dict[str, str] = {}
+    bare_name_index: dict[str, list[str]] = {}  # Maps bare name to all matching node_ids (MAN-156)
     qualified_index: dict[str, list[str]] = {}  # Maps "module::func" to node_ids
     for n in all_nodes:
         raw = n.get("label", "")
         normalised = raw.strip("()").lstrip(".")
         if normalised:
             global_label_to_nid[normalised.lower()] = n["id"]
+            # Also track all candidates by bare name for collision detection (MAN-156)
+            bare_name_index.setdefault(normalised.lower(), []).append(n["id"])
         # Also add file-based qualifications for Rust modules
         # e.g., "fixtures.rs" -> "fixtures::func" lookup
         source_file = n.get("source_file", "")
@@ -3514,9 +3517,19 @@ def extract(paths: list[Path], cache_root: Path | None = None) -> dict:
                         tgt = candidates[0]
                         confidence_score = 0.9
 
-            # Fall back to simple lookup
+            # Fall back to bare-name lookup with collision detection (MAN-156)
             if not tgt:
-                tgt = global_label_to_nid.get(callee.lower())
+                # Check if bare name has multiple candidates (collision)
+                callee_lower = callee.lower()
+                candidates = bare_name_index.get(callee_lower, [])
+                if len(candidates) == 1:
+                    # Unique bare-name match - resolve with lower confidence
+                    tgt = candidates[0]
+                    confidence_score = 0.7
+                elif len(candidates) > 1:
+                    # Collision detected: multiple functions with same name
+                    # Drop this edge to avoid false positives (MAN-156)
+                    tgt = None
 
             if tgt and tgt != caller and (caller, tgt) not in existing_pairs:
                 existing_pairs.add((caller, tgt))

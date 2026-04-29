@@ -2200,6 +2200,9 @@ def extract_rust(path: Path) -> dict:
     file_nid = _make_id(str(path))
     add_node(file_nid, path.name, 1)
 
+    # Collect use declarations to process after all nodes are created
+    pending_uses: list[dict] = []
+
     def walk(node, parent_impl_nid: str | None = None) -> None:
         t = node.type
 
@@ -2249,16 +2252,41 @@ def extract_rust(path: Path) -> dict:
             if arg:
                 raw = _read_text(arg, source)
                 clean = raw.split("{")[0].rstrip(":").rstrip("*").rstrip(":")
-                module_name = clean.split("::")[-1].strip()
-                if module_name:
-                    tgt_nid = _make_id(module_name)
-                    add_edge(file_nid, tgt_nid, "imports_from", node.start_point[0] + 1)
+
+                # Extract full path and final segment
+                full_path = clean.strip()
+                final_segment = full_path.split("::")[-1].strip()
+
+                if final_segment:
+                    # Defer edge creation until all nodes are created
+                    pending_uses.append({
+                        "full_path": full_path,
+                        "final_segment": final_segment,
+                        "line": node.start_point[0] + 1,
+                    })
             return
 
         for child in node.children:
             walk(child, parent_impl_nid=None)
 
     walk(root)
+
+    # Process deferred use declarations now that all nodes are created
+    for use_info in pending_uses:
+        final_segment = use_info["final_segment"]
+        full_path = use_info["full_path"]
+        line = use_info["line"]
+
+        # Strategy 1: Look for existing node that matches the final segment
+        matching_nodes = [n for n in nodes if n["label"].strip().rstrip("()").lower() == final_segment.lower()]
+        if matching_nodes:
+            # Use the first match (usually the definition in current file)
+            tgt_nid = matching_nodes[0]["id"]
+        else:
+            # Strategy 2: Use full path with stem (e.g., Error from use error::Error)
+            tgt_nid = _make_id(stem, final_segment)
+
+        add_edge(file_nid, tgt_nid, "imports_from", line)
 
     label_to_nid: dict[str, str] = {}
     for n in nodes:
@@ -2276,6 +2304,7 @@ def extract_rust(path: Path) -> dict:
             func_node = node.child_by_field_name("function")
             callee_name: str | None = None
             is_member_call: bool = False
+            qualifier: str | None = None
             if func_node:
                 if func_node.type == "identifier":
                     callee_name = _read_text(func_node, source)
@@ -2288,6 +2317,11 @@ def extract_rust(path: Path) -> dict:
                     name = func_node.child_by_field_name("name")
                     if name:
                         callee_name = _read_text(name, source)
+                    # Capture full path for qualified lookup in global post-processing
+                    full_path = _read_text(func_node, source).strip()
+                    parts = [p.strip() for p in full_path.split("::") if p.strip()]
+                    if len(parts) >= 2:
+                        qualifier = "::".join(parts[-2:])
             if callee_name:
                 tgt_nid = label_to_nid.get(callee_name.lower())
                 if tgt_nid and tgt_nid != caller_nid:
@@ -2305,13 +2339,17 @@ def extract_rust(path: Path) -> dict:
                             "weight": 1.0,
                         })
                 else:
-                    raw_calls.append({
+                    rc_entry = {
                         "caller_nid": caller_nid,
                         "callee": callee_name,
                         "is_member_call": is_member_call,
                         "source_file": str_path,
                         "source_location": f"L{node.start_point[0] + 1}",
-                    })
+                    }
+                    if qualifier:
+                        rc_entry["is_scoped"] = True
+                        rc_entry["qualifier"] = qualifier
+                    raw_calls.append(rc_entry)
         for child in node.children:
             walk_calls(child, caller_nid)
 
@@ -3436,11 +3474,22 @@ def extract(paths: list[Path], cache_root: Path | None = None) -> dict:
     # Each extractor saved unresolved calls in raw_calls. Now that we have all
     # nodes from all files, resolve any callee that exists in another file.
     global_label_to_nid: dict[str, str] = {}
+    qualified_index: dict[str, list[str]] = {}  # Maps "module::func" to node_ids
     for n in all_nodes:
         raw = n.get("label", "")
         normalised = raw.strip("()").lstrip(".")
         if normalised:
             global_label_to_nid[normalised.lower()] = n["id"]
+        # Also add file-based qualifications for Rust modules
+        # e.g., "fixtures.rs" -> "fixtures::func" lookup
+        source_file = n.get("source_file", "")
+        if source_file and source_file.endswith(".rs"):
+            from pathlib import Path as PathLib
+            file_stem = PathLib(source_file).stem
+            # Skip lib.rs - it's the root, functions there aren't module-qualified
+            if file_stem != "lib":
+                file_qkey = f"{file_stem.lower()}::{normalised.lower()}"
+                qualified_index.setdefault(file_qkey, []).append(n["id"])
 
     existing_pairs = {(e["source"], e["target"]) for e in all_edges}
     for result in per_file:
@@ -3452,8 +3501,23 @@ def extract(paths: list[Path], cache_root: Path | None = None) -> dict:
             # and collides with any top-level function named "log" in the corpus.
             if rc.get("is_member_call"):
                 continue
-            tgt = global_label_to_nid.get(callee.lower())
             caller = rc["caller_nid"]
+            tgt = None
+            confidence_score = 0.8
+
+            # For scoped Rust calls, use qualified lookup
+            if rc.get("is_scoped"):
+                qualifier = rc.get("qualifier", "")
+                if qualifier:
+                    candidates = qualified_index.get(qualifier.lower(), [])
+                    if len(candidates) == 1:
+                        tgt = candidates[0]
+                        confidence_score = 0.9
+
+            # Fall back to simple lookup
+            if not tgt:
+                tgt = global_label_to_nid.get(callee.lower())
+
             if tgt and tgt != caller and (caller, tgt) not in existing_pairs:
                 existing_pairs.add((caller, tgt))
                 all_edges.append({
@@ -3461,7 +3525,7 @@ def extract(paths: list[Path], cache_root: Path | None = None) -> dict:
                     "target": tgt,
                     "relation": "calls",
                     "confidence": "INFERRED",
-                    "confidence_score": 0.8,
+                    "confidence_score": confidence_score,
                     "source_file": rc.get("source_file", ""),
                     "source_location": rc.get("source_location"),
                     "weight": 1.0,

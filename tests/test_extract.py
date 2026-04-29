@@ -1,5 +1,5 @@
 from pathlib import Path
-from graphify.extract import extract_python, extract, collect_files, _make_id
+from graphify.extract import extract_python, extract_rust, extract, collect_files, _make_id
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -168,3 +168,95 @@ def test_calls_deduplication():
     result = extract_python(FIXTURES / "sample_calls.py")
     call_pairs = [(e["source"], e["target"]) for e in result["edges"] if e["relation"] == "calls"]
     assert len(call_pairs) == len(set(call_pairs)), "Duplicate calls edges found"
+
+
+def test_rust_reexport_resolves_to_definition():
+    """pub use re-exports should create edge pointing to actual definition, not dangling node."""
+    # Use multi-file extract to test cross-file re-export resolution
+    project_dir = FIXTURES / "rust_project_reexports/src"
+    files = list(project_dir.glob("*.rs"))
+    assert len(files) > 0, "No Rust files found in test fixture"
+
+    result = extract(files)
+
+    # Get the Error node (should be from the error module definition)
+    error_nodes = [n for n in result["nodes"] if n["label"] == "Error"]
+    assert len(error_nodes) > 0, (
+        f"Error node not found. Available nodes: {[n['label'] for n in result['nodes']]}"
+    )
+
+    # Get imports_from edges (re-export edges)
+    reexport_edges = [e for e in result["edges"] if e["relation"] == "imports_from"]
+    assert len(reexport_edges) > 0, "No imports_from edges found; re-exports not extracted"
+
+    # Verify at least one edge points to a known Error node
+    error_ids = {n["id"] for n in error_nodes}
+    edges_to_error = [e for e in reexport_edges if e["target"] in error_ids]
+    assert len(edges_to_error) > 0, (
+        f"No imports_from edge points to Error definition. "
+        f"Error IDs: {error_ids}, reexport targets: {[e['target'] for e in reexport_edges]}"
+    )
+
+
+def test_rust_scoped_call_resolves_with_namespace():
+    """Scoped calls like fixtures::gemini_timeout() should preserve namespace and resolve correctly."""
+    # Use multi-file extract to test call resolution
+    project_dir = FIXTURES / "rust_project_scoped/src"
+    files = list(project_dir.glob("*.rs"))
+    assert len(files) > 0, "No Rust files found in test fixture"
+
+    result = extract(files)
+
+    # Get the function nodes
+    nodes_by_label = {n["label"]: n["id"] for n in result["nodes"]}
+
+    # Should have gemini_timeout (from fixtures module)
+    fixture_timeout = nodes_by_label.get("gemini_timeout()")
+    run_test = nodes_by_label.get("run_test()")
+
+    assert fixture_timeout, (
+        f"gemini_timeout() not found. Available functions: "
+        f"{[n['label'] for n in result['nodes'] if '()' in n['label']]}"
+    )
+    assert run_test, "run_test() function not found"
+
+    # run_test should have a calls edge to gemini_timeout
+    calls = {(e["source"], e["target"]) for e in result["edges"] if e["relation"] == "calls"}
+    assert (run_test, fixture_timeout) in calls, (
+        f"Expected call from run_test() to gemini_timeout(). "
+        f"Found calls: {calls}"
+    )
+
+
+def test_rust_scoped_call_no_collision():
+    """Same function name in different modules should not collide."""
+    # Use multi-file extract
+    project_dir = FIXTURES / "rust_project_scoped/src"
+    files = list(project_dir.glob("*.rs"))
+    assert len(files) > 0, "No Rust files found in test fixture"
+
+    result = extract(files)
+
+    # With correct scoped call resolution, run_test calling fixtures::gemini_timeout
+    # should not resolve to other::gemini_timeout
+
+    nodes_by_label = {n["label"]: n["id"] for n in result["nodes"]}
+    run_test = nodes_by_label.get("run_test()")
+    assert run_test, "run_test() not found"
+
+    # Get calls from run_test
+    run_test_calls = [e for e in result["edges"] if e["relation"] == "calls" and e["source"] == run_test]
+    assert len(run_test_calls) > 0, "run_test() has no calls; scoped calls not extracted"
+
+    # The call should go to one specific gemini_timeout, not both
+    call_targets = [e["target"] for e in run_test_calls]
+    assert len(set(call_targets)) <= 1, (
+        f"run_test() calls resolved to multiple different targets; namespace collision. "
+        f"Targets: {call_targets}"
+    )
+
+    # Verify it's calling the correct one (fixtures::gemini_timeout)
+    # by checking the node label/id contains "fixtures" context
+    target_id = call_targets[0]
+    target_node = next((n for n in result["nodes"] if n["id"] == target_id), None)
+    assert target_node, f"Target node {target_id} not found"

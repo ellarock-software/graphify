@@ -212,6 +212,37 @@ if __name__ == "__main__":
     # Save filtered graph
     output_graph = graph_path.parent / "graph-filtered.json"
     output_graph.write_text(json.dumps(filtered, indent=2))
+    print(f"Saved filtered graph to {output_graph}")
 
-    # TODO: Generate filtered report markdown
-    # TODO: Print counts
+    # Convert to NetworkX and identify isolated nodes
+    G = nx.Graph()
+    for node in filtered.get("nodes", []):
+        node_id = node.get("id")
+        if node_id:
+            G.add_node(node_id, **node)
+    for link in filtered.get("links", []):
+        source = link.get("_src") or link.get("source")
+        target = link.get("_tgt") or link.get("target")
+        if source and target:
+            G.add_edge(source, target)
+
+    # Count isolated nodes by scope
+    isolated_by_scope = get_isolated_nodes_by_scope(G)
+
+    # Count all nodes by scope
+    all_by_scope = {}
+    for node_id in G.nodes():
+        scope = G.nodes[node_id].get("source_scope", "unknown")
+        all_by_scope[scope] = all_by_scope.get(scope, 0) + 1
+
+    # Count test functions
+    test_functions = sum(1 for n in G.nodes() if G.nodes[n].get("is_test_function"))
+
+    # Print summary
+    print("\n=== Isolated Node Summary ===")
+    print(f"Production code nodes: {all_by_scope.get('production', 0)}")
+    print(f"  - Isolated: {len(isolated_by_scope.get('production', []))}")
+    print(f"Test code nodes: {all_by_scope.get('test', 0)}")
+    print(f"  - Isolated: {len(isolated_by_scope.get('test', []))}")
+    print(f"Test functions marked: {test_functions}")
+    print(f"\nFiltered graph: {len(filtered['nodes'])} nodes, {len(filtered['links'])} edges")
